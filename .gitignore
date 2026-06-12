@@ -54,3 +54,5 @@ data/
 # scratch files
 scratch/
 tmp/
+
+/db/data/
