@@ -3,6 +3,15 @@ import { Client } from "pg";
 
 loadEnvConfig(process.cwd());
 
+type InvalidCountRow = {
+    invalid_count: number;
+};
+
+type InvalidDetailRow = {
+    district_norm: string;
+    invalid_reason: string;
+};
+
 const QUERY_POSTGIS_EXISTS =
     `
     SELECT EXISTS
@@ -88,16 +97,20 @@ async function main() {
         if ( ! flag_geom ) throw new Error("Geom column does not exist.");
 
         console.log("(3) Counting invalid/null geometries before repair...");
-        const invalidCountBeforeRepair = await client.query(QUERY_INVALID_COUNT);
+        const invalidCountBeforeRepair = await client.query<InvalidCountRow>(
+            QUERY_INVALID_COUNT
+        );
         const invalidCount = invalidCountBeforeRepair.rows[0]?.invalid_count ?? 0;
         console.log(`   Invalid/null geom rows before repair: ${invalidCount}`);
 
         if ( invalidCount ) {
             console.log("(4) Print first 20 invalid rows:\n");
-            const invalidRows = await client.query(QUERY_INVALID_DETAILS);
-            console.table(invalidRows.rows);
+            const invalidDetailsBeforeRepair = await client.query<InvalidDetailRow>(
+                QUERY_INVALID_DETAILS
+            );
+            console.table(invalidDetailsBeforeRepair.rows);
         } else {
-            console.log("Result: No invalid geometries were found / all data are valid.");
+            console.log("Result: No invalid geometries found. Nothing to repair.");
         }
 
         console.log("(5) Rebuilding all invalid geometries from feature...");
@@ -113,13 +126,17 @@ async function main() {
         }
 
         console.log("(6) Counting invalid geometries after repair...");
-        const invalidCountAfterRepair = await client.query(QUERY_INVALID_COUNT);
+        const invalidCountAfterRepair = await client.query<InvalidCountRow>(
+            QUERY_INVALID_COUNT
+        );
         const finalInvalidCount = invalidCountAfterRepair.rows[0]?.invalid_count ?? 0;
         console.log(`The number of invalid geometries after repair: ${finalInvalidCount}`);
 
         if ( finalInvalidCount > 0 ) {
             console.log("(7) First 20 invalid rows after repair:");
-            const invalidDetailsAfterRepair = await client.query(QUERY_INVALID_DETAILS);
+            const invalidDetailsAfterRepair = await client.query<InvalidDetailRow>(
+                QUERY_INVALID_DETAILS
+            );
             console.table(invalidDetailsAfterRepair.rows);
         } else {
             console.log("Result: Repaired successfully. All geometries are now valid.");

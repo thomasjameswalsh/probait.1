@@ -12,7 +12,7 @@ const INPUT_DATA_FILE_NAME = "PostcodeDistrictsPolygons_multi.json";
 const CONFIRMATION_PHRASE = "DRAKE-JAPAN-SKINCARE-69";
 
 const QUERY_UPSERT_POSTCODE_DISTRICT = `
-  INSERT INTO postcodes (district_norm, feature, geom)
+  INSERT INTO postcode_districts (district_norm, feature, geom)
   VALUES (
     $1,
     $2::jsonb,
@@ -33,7 +33,6 @@ const QUERY_UPSERT_POSTCODE_DISTRICT = `
 `;
 
 const connectionString = process.env.DATABASE_URL_UNPOOLED;
-
 if ( !connectionString ) {
     throw new Error("DATABASE_URL_UNPOOLED is missing.");
 }
@@ -42,11 +41,11 @@ const client = new Client({
     connectionString,
 });
 
-function normalisedDistrict(input: string) {
+function normalisedDistrict(input: string): string {
     return String(input).trim().toUpperCase().replace(/\s+/g, "");
 }
 
-async function confirmProceed() {
+async function confirmProceed(): Promise<boolean> {
     console.log("");
     console.log("WARNING: This script will update existing postcode records on conflict.");
     console.log("Existing feature JSON and PostGIS geometry may be replaced.");
@@ -64,59 +63,65 @@ async function confirmProceed() {
     }
 }
 
-async function main() {
-    await client.connect();
-
+async function main(): Promise<void> {
     if ( !INPUT_DATA_FILE_NAME ) {
         console.log("No file specified. Nothing done.");
         return;
     }
 
     const confirmed = await confirmProceed();
-
     if ( !confirmed ) {
         console.log("Confirmation phrase not entered. Nothing done.");
         return;
     }
 
-    const filePath = path.join(process.cwd(), "db/data", INPUT_DATA_FILE_NAME);
-    const raw = await fs.readFile(filePath, "utf8");
-    const data = JSON.parse(raw);
+    await client.connect();
+    try {
+        await client.query("BEGIN");
 
-    let insertedOrUpdated = 0;
-    let failed = 0;
+        const filePath = path.join(process.cwd(), "db", "data", INPUT_DATA_FILE_NAME);
+        const raw = await fs.readFile(filePath, "utf8");
+        const data = JSON.parse(raw);
 
-    for ( const feature of data.features ) {
-        const props = feature.properties ?? {};
-        const rawDistrictCode = props.name ?? null;
+        let insertedOrUpdated = 0;
+        let failed = 0;
 
-        if ( rawDistrictCode == null || String(rawDistrictCode).trim() === "" ) {
-            console.log(`On feature ${insertedOrUpdated + failed + 1} no property name found.`);
-            failed += 1;
-            continue;
+        for (const feature of data.features) {
+            const props = feature.properties ?? {};
+            const rawDistrictCode = props.name ?? null;
+
+            if (rawDistrictCode == null || String(rawDistrictCode).trim() === "") {
+                console.log(`On feature ${insertedOrUpdated + failed + 1} no property name found.`);
+                failed += 1;
+                continue;
+            }
+
+            const normDistrictCode = normalisedDistrict(String(rawDistrictCode));
+
+            await client.query(
+                QUERY_UPSERT_POSTCODE_DISTRICT,
+                [normDistrictCode, JSON.stringify(feature)]
+            );
+
+            insertedOrUpdated += 1;
         }
 
-        const normDistrictCode = normalisedDistrict(rawDistrictCode);
+        await client.query("COMMIT");
 
-        await client.query(
-            QUERY_UPSERT_POSTCODE_DISTRICT,
-            [normDistrictCode, JSON.stringify(feature)]
-        );
-
-        insertedOrUpdated += 1;
+        console.log("Upsert re-population with updates complete");
+        console.log(`Inserted or updated ${insertedOrUpdated} records`);
+        console.log(`Failed ${failed} records missing district`);
+    } catch ( error ) {
+        await client.query("ROLLBACK");
+        throw error;
+    } finally {
+        await client.end();
     }
-
-    console.log("Upsert re-population with updates complete");
-    console.log(`Inserted or updated ${insertedOrUpdated} records`);
-    console.log(`Failed ${failed} records missing district`);
 }
 
 main()
-.catch((err) => {
+.catch((error) => {
     console.error("Operation failed");
-    console.error(err);
-    process.exitCode = 1;
-})
-.finally(async () => {
-    await client.end();
+    console.error(error);
+    process.exit(1);
 });
