@@ -13,7 +13,7 @@ const POSTCODE_DISTRICT_PATTERN =
 
 const EMPTY_POSTCODE_ERROR: validatePostcodeDistrictReturnType = {
     ok: false as const,
-    error: "Please enter a postcode.",
+    error: "Missing postcode district.",
 };
 
 const INVALID_POSTCODE_ERROR: validatePostcodeDistrictReturnType = {
@@ -32,8 +32,12 @@ export function isValidPostcodeDistrict(input: string): boolean {
     return POSTCODE_DISTRICT_PATTERN.test(input);
 }
 
-export function validatePostcodeDistrict(input: string): validatePostcodeDistrictReturnType
+export function validatePostcodeDistrict(input: string | null): validatePostcodeDistrictReturnType
 {
+    if ( ! input ) {
+        return EMPTY_POSTCODE_ERROR;
+    }
+
     if ( ! input.trim() ) {
         return EMPTY_POSTCODE_ERROR;
     }
