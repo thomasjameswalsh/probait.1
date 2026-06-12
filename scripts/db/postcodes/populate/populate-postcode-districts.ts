@@ -79,7 +79,7 @@ async function main(): Promise<void> {
         console.log(`Failed ${failed} records missing district`);
     } catch (error) {
         await client.query("ROLLBACK");
-        console.error(error);
+        throw error;
     } finally {
         await client.end();
     }

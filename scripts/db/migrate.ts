@@ -21,7 +21,7 @@ type MigrationFile = {
 };
 
 const MIGRATIONS_DIR = path.join(process.cwd(), "db", "migrations");
-const BOOTSTRAP_MIGRATION = "000_create_schema_migrations.sql";
+const BOOTSTRAP_MIGRATION = "0000_create_schema_migrations.sql";
 
 const connectionString = process.env.DATABASE_URL_UNPOOLED;
 if ( ! connectionString ) {
@@ -32,7 +32,7 @@ function parseMigrationFilename(filename: string): {
     version: string;
     name: string;
 } {
-    const match = filename.match(/^(\d{3})_(.+)\.sql$/);
+    const match = filename.match(/^(\d{4})_(.+)\.sql$/);
 
     if ( !match ) {
         throw new Error(

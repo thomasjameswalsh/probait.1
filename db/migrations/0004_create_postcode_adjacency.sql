@@ -9,11 +9,11 @@ CREATE TABLE IF NOT EXISTS postcode_adjacency (
 
     CONSTRAINT postcode_adjacency_district_fk
     FOREIGN KEY (district_norm)
-    REFERENCES postcodes (district_norm)
+    REFERENCES postcode_districts (district_norm)
     ON DELETE CASCADE,
 
     CONSTRAINT postcode_adjacency_neighbour_fk
     FOREIGN KEY (neighbour_district_norm)
-    REFERENCES postcodes (district_norm)
+    REFERENCES postcode_districts (district_norm)
     ON DELETE CASCADE
     );
