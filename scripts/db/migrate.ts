@@ -113,7 +113,7 @@ async function applyMigration(
 
         await client.query("COMMIT");
 
-        console.log(`Applied migration: ${migration.filename}`);
+        console.log(`\t \t Applied migration: ${migration.filename}`);
     } catch (error) {
         await client.query("ROLLBACK");
         throw error;
