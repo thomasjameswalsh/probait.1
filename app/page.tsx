@@ -183,7 +183,7 @@ export default function HomePage() {
     ): Promise<PostcodeDistrictRow[]> {
         const districtNeighbourRows = await fetchNeighbourRows(district_norm);
 
-        if (!districtNeighbourRows) {
+        if ( !districtNeighbourRows ) {
             return neighbourRows;
         }
 
@@ -205,7 +205,7 @@ export default function HomePage() {
         selectedRows: PostcodeDistrictRow[],
         neighbourRows: PostcodeDistrictRow[]
     ): Promise<NextMapData> {
-        if (hasDistrict(selectedRows, neighbour.district_norm)) {
+        if ( hasDistrict(selectedRows, neighbour.district_norm) ) {
             console.error("promote neighbour called with a selected district:", {
                 district_norm: neighbour.district_norm,
             });
@@ -216,7 +216,7 @@ export default function HomePage() {
             };
         }
 
-        if (!hasDistrict(neighbourRows, neighbour.district_norm)) {
+        if ( !hasDistrict(neighbourRows, neighbour.district_norm) ) {
             console.error("promote neighbour called with district not in neighbour list:", {
                 district_norm: neighbour.district_norm,
                 selectedRows: selectedRows.map((row) => row.district_norm),
@@ -259,7 +259,7 @@ export default function HomePage() {
     ): Promise<NextMapData> {
         const postcodeResponseData = await fetchPostcodeDistrictRow(district_norm);
 
-        if (!postcodeResponseData) {
+        if ( !postcodeResponseData ) {
             return {
                 nextPostcodesData: selectedRows,
                 nextNeighboursData: neighbourRows
@@ -287,7 +287,7 @@ export default function HomePage() {
     async function handleMapNeighbourClick(
         neighbour: PostcodeDistrictRow
     ): Promise<void> {
-        if (isUpdatingMapRef.current) {
+        if ( isUpdatingMapRef.current ) {
             return;
         }
 
@@ -310,7 +310,7 @@ export default function HomePage() {
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
 
-        if (isUpdatingMapRef.current) {
+        if ( isUpdatingMapRef.current ) {
             return;
         }
 
