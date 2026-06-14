@@ -148,8 +148,30 @@ export default function HomePage() {
         selectedRows: PostcodeDistrictRow[],
         neighbourRows: PostcodeDistrictRow[]
     ): Promise<NextMapData> {
+        if ( hasDistrict(selectedRows, neighbour.district_norm) ) {
+            console.error("promote neighbour called with a selected district:", {
+                district_norm: neighbour.district_norm,
+            });
+
+            return {
+                nextPostcodesData: selectedRows,
+                nextNeighboursData: neighbourRows,
+            };
+        }
+
+        if ( ! hasDistrict(neighbourRows, neighbour.district_norm) ) {
+            console.error("promote neighbour called with district not in neighbour list: ", {
+                district_norm: neighbour.district_norm,
+            });
+
+            return {
+                nextPostcodesData: selectedRows,
+                nextNeighboursData: neighbourRows,
+            };
+        }
+
         let nextNeighboursData: PostcodeDistrictRow[]
-            = removeDistrict(neighbour.district_norm, neighbourRows)
+            = removeDistrict(neighbour.district_norm, neighbourRows);
 
         const nextPostcodesData: PostcodeDistrictRow[] = [neighbour, ...selectedRows];
         nextNeighboursData =
@@ -158,8 +180,10 @@ export default function HomePage() {
                 nextPostcodesData,
                 nextNeighboursData);
 
-        const result: NextMapData = { nextPostcodesData, nextNeighboursData };
-        return result;
+        return {
+            nextPostcodesData,
+            nextNeighboursData,
+        };
     }
 
 
@@ -245,41 +269,33 @@ export default function HomePage() {
             return;
         }
 
-        const normalised = validationResult.value;
-        setInput(normalised);
+        const district_norm = validationResult.value;
+        setInput(district_norm);
 
-        const inSelected = postcodesData.some((row) => row.district_norm === normalised);
+        const inSelected = findDistrict(postcodesData, district_norm);
         if ( inSelected ) {
             setErrorMessage("District already added to list.");
             return;
         }
 
-        let nextPostcodesData: PostcodeDistrictRow[] = postcodesData;
-        let nextNeighboursData: PostcodeDistrictRow[] = neighboursData;
-
-        const findInNeighbours = neighboursData.find((row) => row.district_norm === normalised);
+        let result: NextMapData;
+        const findInNeighbours = findDistrict(neighboursData, district_norm);
         if ( findInNeighbours ) {
-            const result: NextMapData = await promoteNeighbourToSelected(
+            result = await promoteNeighbourToSelected(
                 findInNeighbours,
-                nextPostcodesData,
-                nextNeighboursData);
-
-            nextPostcodesData = result.nextPostcodesData;
-            nextNeighboursData = result.nextNeighboursData;
+                postcodesData,
+                neighboursData);
         } else {
-            const result: NextMapData = await addNewPostcodeToMap(
-                normalised,
-                nextPostcodesData,
-                nextNeighboursData
+            result = await addNewPostcodeToMap(
+                district_norm,
+                postcodesData,
+                neighboursData
             );
-
-            nextPostcodesData = result.nextPostcodesData;
-            nextNeighboursData = result.nextNeighboursData;
         }
 
         setInput("");
-        setPostcodesData(nextPostcodesData);
-        setNeighboursData(nextNeighboursData);
+        setPostcodesData(result.nextPostcodesData);
+        setNeighboursData(result.nextNeighboursData);
     }
 
 
