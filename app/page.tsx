@@ -1,10 +1,9 @@
 'use client';
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 
 import { PostcodeDistrictRow } from "@/lib/types/postcode-types";
-
 import { validatePostcodeDistrict } from "@/lib/utils/postcode-format";
 
 const PostcodeMap = dynamic(
@@ -63,14 +62,15 @@ function removeDistrict(
 function filterDuplicatePostcodes(
     target: PostcodeDistrictRow[],
     selectedRows: PostcodeDistrictRow[],
-    neighbourRows: PostcodeDistrictRow[]) {
+    neighbourRows: PostcodeDistrictRow[]
+): PostcodeDistrictRow[] {
     const existingDistricts = new Set<string>([
         ...selectedRows.map((row) => row.district_norm),
         ...neighbourRows.map((row) => row.district_norm),
     ]);
 
     return target.filter((row) => {
-        return ! existingDistricts.has(row.district_norm);
+        return !existingDistricts.has(row.district_norm);
     });
 }
 
@@ -84,6 +84,28 @@ export default function HomePage() {
     const [neighboursData, setNeighboursData] = useState<PostcodeDistrictRow[]>([]);
     const [errorMessage, setErrorMessage] = useState<string>("");
 
+    const postcodesDataRef = useRef<PostcodeDistrictRow[]>([]);
+    const neighboursDataRef = useRef<PostcodeDistrictRow[]>([]);
+    const isUpdatingMapRef = useRef(false);
+
+    useEffect(() => {
+        postcodesDataRef.current = postcodesData;
+    }, [postcodesData]);
+
+    useEffect(() => {
+        neighboursDataRef.current = neighboursData;
+    }, [neighboursData]);
+
+
+    function commitMapData(nextMapData: NextMapData): void {
+        postcodesDataRef.current = nextMapData.nextPostcodesData;
+        neighboursDataRef.current = nextMapData.nextNeighboursData;
+
+        setPostcodesData(nextMapData.nextPostcodesData);
+        setNeighboursData(nextMapData.nextNeighboursData);
+    }
+
+
     async function fetchPostcodeDistrictRow(
         district_norm: string
     ): Promise<PostcodeDistrictRow | null> {
@@ -91,11 +113,11 @@ export default function HomePage() {
             `/api/postcode?district=${encodeURIComponent(district_norm)}`
         );
 
-        if ( ! response.ok ) {
-            const errorBody = await response.json()
+        if (!response.ok) {
+            const errorBody = await response.json();
             const errorMessage = errorBody?.error;
 
-            if ( response.status >= 500 ) {
+            if (response.status >= 500) {
                 console.error("Fetch postcode server error:", {
                     status: response.status,
                     message: errorMessage
@@ -106,7 +128,8 @@ export default function HomePage() {
                     message: errorMessage
                 });
             }
-            if ( response.status === 404 ) {
+
+            if (response.status === 404) {
                 setErrorMessage("Postcode not found.");
             } else {
                 setErrorMessage(`${errorMessage ?? "Something went wrong."} (${response.status})`);
@@ -119,89 +142,6 @@ export default function HomePage() {
     }
 
 
-    async function fetchAndMergeNeighbourDistricts(
-        district_norm: string,
-        selectedRows: PostcodeDistrictRow[],
-        neighbourRows: PostcodeDistrictRow[]
-    ): Promise<PostcodeDistrictRow[]> {
-        const districtNeighbourRows = await fetchNeighbourRows(district_norm);
-
-        if ( ! districtNeighbourRows ) {
-            return neighbourRows;
-        }
-
-        const filteredNeighbourRows = filterDuplicatePostcodes(
-            districtNeighbourRows,
-            selectedRows,
-            neighbourRows
-        );
-
-        return [
-            ...neighbourRows,
-            ...filteredNeighbourRows
-        ];
-    }
-
-
-    async function promoteNeighbourToSelected(
-        neighbour: PostcodeDistrictRow,
-        selectedRows: PostcodeDistrictRow[],
-        neighbourRows: PostcodeDistrictRow[]
-    ): Promise<NextMapData> {
-        if ( hasDistrict(selectedRows, neighbour.district_norm) ) {
-            console.error("promote neighbour called with a selected district:", {
-                district_norm: neighbour.district_norm,
-            });
-
-            return {
-                nextPostcodesData: selectedRows,
-                nextNeighboursData: neighbourRows,
-            };
-        }
-
-        if ( ! hasDistrict(neighbourRows, neighbour.district_norm) ) {
-            console.error("promote neighbour called with district not in neighbour list: ", {
-                district_norm: neighbour.district_norm,
-            });
-
-            return {
-                nextPostcodesData: selectedRows,
-                nextNeighboursData: neighbourRows,
-            };
-        }
-
-        let nextNeighboursData: PostcodeDistrictRow[]
-            = removeDistrict(neighbour.district_norm, neighbourRows);
-
-        const nextPostcodesData: PostcodeDistrictRow[] = [neighbour, ...selectedRows];
-        nextNeighboursData =
-            await fetchAndMergeNeighbourDistricts(
-                neighbour.district_norm,
-                nextPostcodesData,
-                nextNeighboursData);
-
-        return {
-            nextPostcodesData,
-            nextNeighboursData,
-        };
-    }
-
-
-    async function handleMapNeighbourClick(
-        neighbour: PostcodeDistrictRow
-    ): Promise<void> {
-        const result: NextMapData =
-            await promoteNeighbourToSelected(
-                neighbour,
-                postcodesData,
-                neighboursData
-            );
-
-        setPostcodesData(result.nextPostcodesData);
-        setNeighboursData(result.nextNeighboursData);
-    }
-
-
     async function fetchNeighbourRows(
         district_norm: string
     ): Promise<PostcodeDistrictRow[] | null> {
@@ -209,11 +149,11 @@ export default function HomePage() {
             `/api/neighbours?district=${encodeURIComponent(district_norm)}`
         );
 
-        if ( ! response.ok ) {
-            const errorBody = await response.json()
+        if (!response.ok) {
+            const errorBody = await response.json();
             const errorMessage = errorBody?.error;
 
-            if ( response.status >= 500 ) {
+            if (response.status >= 500) {
                 console.error("Fetch neighbours server error:", {
                     status: response.status,
                     message: errorMessage
@@ -236,16 +176,100 @@ export default function HomePage() {
     }
 
 
+    async function fetchAndMergeNeighbourDistricts(
+        district_norm: string,
+        selectedRows: PostcodeDistrictRow[],
+        neighbourRows: PostcodeDistrictRow[]
+    ): Promise<PostcodeDistrictRow[]> {
+        const districtNeighbourRows = await fetchNeighbourRows(district_norm);
+
+        if (!districtNeighbourRows) {
+            return neighbourRows;
+        }
+
+        const filteredNeighbourRows = filterDuplicatePostcodes(
+            districtNeighbourRows,
+            selectedRows,
+            neighbourRows
+        );
+
+        return [
+            ...neighbourRows,
+            ...filteredNeighbourRows
+        ];
+    }
+
+
+    async function promoteNeighbourToSelected(
+        neighbour: PostcodeDistrictRow,
+        selectedRows: PostcodeDistrictRow[],
+        neighbourRows: PostcodeDistrictRow[]
+    ): Promise<NextMapData> {
+        if (hasDistrict(selectedRows, neighbour.district_norm)) {
+            console.error("promote neighbour called with a selected district:", {
+                district_norm: neighbour.district_norm,
+            });
+
+            return {
+                nextPostcodesData: selectedRows,
+                nextNeighboursData: neighbourRows,
+            };
+        }
+
+        if (!hasDistrict(neighbourRows, neighbour.district_norm)) {
+            console.error("promote neighbour called with district not in neighbour list:", {
+                district_norm: neighbour.district_norm,
+                selectedRows: selectedRows.map((row) => row.district_norm),
+                neighbourRows: neighbourRows.map((row) => row.district_norm),
+            });
+
+            return {
+                nextPostcodesData: selectedRows,
+                nextNeighboursData: neighbourRows,
+            };
+        }
+
+        let nextNeighboursData: PostcodeDistrictRow[] = removeDistrict(
+            neighbour.district_norm,
+            neighbourRows
+        );
+
+        const nextPostcodesData: PostcodeDistrictRow[] = [
+            neighbour,
+            ...selectedRows
+        ];
+
+        nextNeighboursData = await fetchAndMergeNeighbourDistricts(
+            neighbour.district_norm,
+            nextPostcodesData,
+            nextNeighboursData
+        );
+
+        return {
+            nextPostcodesData,
+            nextNeighboursData,
+        };
+    }
+
+
     async function addNewPostcodeToMap(
         district_norm: string,
         selectedRows: PostcodeDistrictRow[],
         neighbourRows: PostcodeDistrictRow[]
     ): Promise<NextMapData> {
         const postcodeResponseData = await fetchPostcodeDistrictRow(district_norm);
-        if ( ! postcodeResponseData ) {
-            return { nextPostcodesData: selectedRows, nextNeighboursData: neighbourRows};
+
+        if (!postcodeResponseData) {
+            return {
+                nextPostcodesData: selectedRows,
+                nextNeighboursData: neighbourRows
+            };
         }
-        const nextPostcodesData = [...selectedRows, postcodeResponseData];
+
+        const nextPostcodesData: PostcodeDistrictRow[] = [
+            ...selectedRows,
+            postcodeResponseData
+        ];
 
         const nextNeighboursData = await fetchAndMergeNeighbourDistricts(
             district_norm,
@@ -254,91 +278,136 @@ export default function HomePage() {
         );
 
         return {
-            nextPostcodesData: nextPostcodesData,
-            nextNeighboursData: nextNeighboursData };
+            nextPostcodesData,
+            nextNeighboursData
+        };
+    }
+
+
+    async function handleMapNeighbourClick(
+        neighbour: PostcodeDistrictRow
+    ): Promise<void> {
+        if (isUpdatingMapRef.current) {
+            return;
+        }
+
+        isUpdatingMapRef.current = true;
+
+        try {
+            const result: NextMapData = await promoteNeighbourToSelected(
+                neighbour,
+                postcodesDataRef.current,
+                neighboursDataRef.current
+            );
+
+            commitMapData(result);
+        } finally {
+            isUpdatingMapRef.current = false;
+        }
     }
 
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
-        setErrorMessage("");
 
-        const validationResult = validatePostcodeDistrict(input);
-        if ( ! validationResult.ok ) {
-            setErrorMessage(validationResult.error);
+        if (isUpdatingMapRef.current) {
             return;
         }
 
-        const district_norm = validationResult.value;
-        setInput(district_norm);
+        isUpdatingMapRef.current = true;
 
-        const inSelected = findDistrict(postcodesData, district_norm);
-        if ( inSelected ) {
-            setErrorMessage("District already added to list.");
-            return;
+        try {
+            setErrorMessage("");
+
+            const validationResult = validatePostcodeDistrict(input);
+
+            if (!validationResult.ok) {
+                setErrorMessage(validationResult.error);
+                return;
+            }
+
+            const district_norm = validationResult.value;
+            setInput(district_norm);
+
+            const currentPostcodesData = postcodesDataRef.current;
+            const currentNeighboursData = neighboursDataRef.current;
+
+            const inSelected = findDistrict(currentPostcodesData, district_norm);
+
+            if (inSelected) {
+                setErrorMessage("District already added to list.");
+                return;
+            }
+
+            let result: NextMapData;
+
+            const findInNeighbours = findDistrict(currentNeighboursData, district_norm);
+
+            if (findInNeighbours) {
+                result = await promoteNeighbourToSelected(
+                    findInNeighbours,
+                    currentPostcodesData,
+                    currentNeighboursData
+                );
+            } else {
+                result = await addNewPostcodeToMap(
+                    district_norm,
+                    currentPostcodesData,
+                    currentNeighboursData
+                );
+            }
+
+            setInput("");
+            commitMapData(result);
+        } finally {
+            isUpdatingMapRef.current = false;
         }
-
-        let result: NextMapData;
-        const findInNeighbours = findDistrict(neighboursData, district_norm);
-        if ( findInNeighbours ) {
-            result = await promoteNeighbourToSelected(
-                findInNeighbours,
-                postcodesData,
-                neighboursData);
-        } else {
-            result = await addNewPostcodeToMap(
-                district_norm,
-                postcodesData,
-                neighboursData
-            );
-        }
-
-        setInput("");
-        setPostcodesData(result.nextPostcodesData);
-        setNeighboursData(result.nextNeighboursData);
     }
 
 
     return (
-        <div className = "p-6">
-
-            <div className = "space-y-1">
-                <h1 className = "text-2xl font-bold">Thomas' Postcode Districts Map</h1>
-                <p className = "text-sm text-muted-foreground">
+        <div className="p-6">
+            <div className="space-y-1">
+                <h1 className="text-2xl font-bold">Thomas' Postcode Districts Map</h1>
+                <p className="text-sm text-muted-foreground">
                     Select postcode districts
                 </p>
             </div>
 
             <div className="mt-6 grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-                <Card className = "h-fit">
+                <Card className="h-fit">
                     <CardHeader>
                         <CardTitle>List Postcode Districts</CardTitle>
                     </CardHeader>
 
                     <CardContent className="space-y-4">
-                        <form onSubmit = {handleSubmit} className = "space-y-3">
+                        <form onSubmit={handleSubmit} className="space-y-3">
                             <Field orientation="horizontal">
                                 <Input
-                                    value = {input}
-                                    onChange = {(e) => setInput(e.target.value)}
-                                    placeholder = "e.g. CM21"
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    placeholder="e.g. CM21"
                                     maxLength={12}
                                 />
-                                <Button type = "submit">Add</Button>
+                                <Button type="submit">Add</Button>
                             </Field>
                         </form>
 
-                        {errorMessage && <p className = "text-sm text-red-600 mt-1">{errorMessage}</p>}
+                        {errorMessage && (
+                            <p className="text-sm text-red-600 mt-1">
+                                {errorMessage}
+                            </p>
+                        )}
 
                         <Separator />
 
-                        <div className = "flex flex-wrap gap-2">
-                            {postcodesData.map((postcodeData, _index) => (
+                        <div className="flex flex-wrap gap-2">
+                            {postcodesData.map((postcodeData) => (
                                 <div
-                                    key = {postcodeData.district_norm}
-                                    className="flex items-center justify-between gap-2 min-w-[100px] rounded-md border px-3 py-1">
-
-                                    <div className = "min-w-[40px]">
+                                    key={postcodeData.district_norm}
+                                    className="flex items-center justify-between gap-2 min-w-[100px] rounded-md border px-3 py-1"
+                                >
+                                    <div className="min-w-[40px]">
                                         <span>{postcodeData.district_norm}</span>
                                     </div>
 
@@ -346,26 +415,38 @@ export default function HomePage() {
 
                                     <Button
                                         type="button"
-                                        variant = "ghost"
-                                        size = "icon"
+                                        variant="ghost"
+                                        size="icon"
                                         onClick={() => {
                                             const updatedPostcodesData = postcodesData.filter(
-                                                (p: PostcodeDistrictRow) => p.district_norm !== postcodeData.district_norm
+                                                (p: PostcodeDistrictRow) => {
+                                                    return p.district_norm !== postcodeData.district_norm;
+                                                }
                                             );
-                                            setPostcodesData(updatedPostcodesData);
+
+                                            const nextMapData: NextMapData = {
+                                                nextPostcodesData: updatedPostcodesData,
+                                                nextNeighboursData: neighboursData,
+                                            };
+
+                                            commitMapData(nextMapData);
                                         }}
                                         className="h-5 w-5 hover:bg-red-500 hover:text-white transition"
-                                    >✕</Button>
+                                    >
+                                        ✕
+                                    </Button>
                                 </div>
                             ))}
                         </div>
                     </CardContent>
                 </Card>
-                <div className = "h-[75vh] min-h-[700px] w-full">
+
+                <div className="h-[75vh] min-h-[700px] w-full">
                     <PostcodeMap
-                        postcodesData = {postcodesData}
-                        neighboursData = {neighboursData}
-                    ></PostcodeMap>
+                        postcodesData={postcodesData}
+                        neighboursData={neighboursData}
+                        onNeighbourClick={handleMapNeighbourClick}
+                    />
                 </div>
             </div>
         </div>

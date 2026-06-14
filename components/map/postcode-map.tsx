@@ -10,7 +10,8 @@ import { PostcodeDistrictRow } from '@/lib/types/postcode-types';
 
 type PostcodeMapProps = {
     postcodesData: PostcodeDistrictRow[],
-    neighboursData: PostcodeDistrictRow[]
+    neighboursData: PostcodeDistrictRow[],
+    onNeighbourClick?: (neighbour: PostcodeDistrictRow) => void;
 };
 
 function FitToFirstPostcode({ postcodesData }: { postcodesData: PostcodeDistrictRow[] }) {
@@ -36,7 +37,10 @@ function FitToFirstPostcode({ postcodesData }: { postcodesData: PostcodeDistrict
     return null;
 }
 
-export default function PostcodeMap({ postcodesData, neighboursData }: PostcodeMapProps) {
+export default function PostcodeMap({
+        postcodesData,
+        neighboursData,
+        onNeighbourClick }: PostcodeMapProps) {
     const center: LatLngExpression = [51.505, -0.09];
 
     const blue_basePolygonStyle = {
@@ -84,7 +88,7 @@ export default function PostcodeMap({ postcodesData, neighboursData }: PostcodeM
 
     {postcodesData.map((data, _index) => (
         <GeoJSON
-            key = { data.district_norm }
+            key = { `selected-${data.district_norm}` }
         data = { data.feature }
         style = { blue_basePolygonStyle }
         onEachFeature = {(_feature, layer) => {
@@ -109,7 +113,7 @@ export default function PostcodeMap({ postcodesData, neighboursData }: PostcodeM
 
     {neighboursData.map((data, _index) => (
         <GeoJSON
-            key = { data.district_norm }
+            key = { `neighbour-${data.district_norm}` }
         data = { data.feature }
         style = { grey_basePolygonStyle }
         onEachFeature = {(_feature, layer) => {
@@ -122,6 +126,9 @@ export default function PostcodeMap({ postcodesData, neighboursData }: PostcodeM
         });
 
         layer.on({
+            click: () => {
+                onNeighbourClick?.(data);
+            },
             mouseover: (e) => {
                 e.target.setStyle(grey_hoverPolygonStyle);
             },
