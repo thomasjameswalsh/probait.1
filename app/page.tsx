@@ -4,7 +4,6 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 
 import { PostcodeDistrictRow } from "@/lib/types/postcode-types";
-import { GeojsonFeature } from "@/lib/types/geojson-types";
 
 import { validatePostcodeDistrict } from "@/lib/utils/postcode-format";
 
@@ -13,7 +12,6 @@ const PostcodeMap = dynamic(
     { ssr: false }
 );
 
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Field } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
@@ -24,7 +22,6 @@ import {
     CardHeader,
     CardTitle
 } from "@/components/ui/card";
-import {validateTurboNextConfig} from "next/dist/lib/turbopack-warning";
 
 
 /************************************/
@@ -165,6 +162,7 @@ export default function HomePage() {
         return result;
     }
 
+
     async function handleMapNeighbourClick(
         neighbour: PostcodeDistrictRow
     ): Promise<void> {
@@ -213,6 +211,7 @@ export default function HomePage() {
         return await response.json() as PostcodeDistrictRow[];
     }
 
+
     async function addNewPostcodeToMap(
         district_norm: string,
         selectedRows: PostcodeDistrictRow[],
@@ -222,16 +221,19 @@ export default function HomePage() {
         if ( ! postcodeResponseData ) {
             return { nextPostcodesData: selectedRows, nextNeighboursData: neighbourRows};
         }
-        const nextPostcodesData = [...neighbourRows, postcodeResponseData];
+        const nextPostcodesData = [...selectedRows, postcodeResponseData];
 
-        const neighboursResponseData = await fetchNeighbourRows(district_norm);
-        if ( ! neighboursResponseData ) {
-            return { nextPostcodesData: nextPostcodesData, nextNeighboursData: neighbourRows };
-        }
-        const nextNeighboursData = [...neighboursResponseData, ...neighbourRows];
+        const nextNeighboursData = await fetchAndMergeNeighbourDistricts(
+            district_norm,
+            nextPostcodesData,
+            neighbourRows
+        );
 
-        return { nextPostcodesData: nextPostcodesData, nextNeighboursData: nextNeighboursData };
+        return {
+            nextPostcodesData: nextPostcodesData,
+            nextNeighboursData: nextNeighboursData };
     }
+
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -279,6 +281,7 @@ export default function HomePage() {
         setPostcodesData(nextPostcodesData);
         setNeighboursData(nextNeighboursData);
     }
+
 
     return (
         <div className = "p-6">
