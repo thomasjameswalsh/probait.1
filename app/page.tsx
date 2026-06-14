@@ -24,6 +24,62 @@ import {
     CardHeader,
     CardTitle
 } from "@/components/ui/card";
+import {validateTurboNextConfig} from "next/dist/lib/turbopack-warning";
+
+
+/************************************/
+
+
+type NextMapData = {
+    nextPostcodesData: PostcodeDistrictRow[];
+    nextNeighboursData: PostcodeDistrictRow[];
+};
+
+
+/************************************/
+
+
+function hasDistrict(
+    rows: PostcodeDistrictRow[],
+    district: string
+): boolean {
+    return rows.some((row) => row.district_norm === district);
+}
+
+
+function findDistrict(
+    rows: PostcodeDistrictRow[],
+    district: string
+): PostcodeDistrictRow | undefined {
+    return rows.find((row) => row.district_norm === district);
+}
+
+
+function removeDistrict(
+    district: string,
+    rows: PostcodeDistrictRow[]
+): PostcodeDistrictRow[] {
+    return rows.filter((row) => row.district_norm !== district);
+}
+
+
+function filterDuplicatePostcodes(
+    target: PostcodeDistrictRow[],
+    selectedRows: PostcodeDistrictRow[],
+    neighbourRows: PostcodeDistrictRow[]) {
+    const existingDistricts = new Set<string>([
+        ...selectedRows.map((row) => row.district_norm),
+        ...neighbourRows.map((row) => row.district_norm),
+    ]);
+
+    return target.filter((row) => {
+        return ! existingDistricts.has(row.district_norm);
+    });
+}
+
+
+/***********************************/
+
 
 export default function HomePage() {
     const [input, setInput] = useState("");
@@ -65,6 +121,65 @@ export default function HomePage() {
         return await response.json() as PostcodeDistrictRow;
     }
 
+
+    async function fetchAndMergeNeighbourDistricts(
+        district_norm: string,
+        selectedRows: PostcodeDistrictRow[],
+        neighbourRows: PostcodeDistrictRow[]
+    ): Promise<PostcodeDistrictRow[]> {
+        const districtNeighbourRows = await fetchNeighbourRows(district_norm);
+
+        if ( ! districtNeighbourRows ) {
+            return neighbourRows;
+        }
+
+        const filteredNeighbourRows = filterDuplicatePostcodes(
+            districtNeighbourRows,
+            selectedRows,
+            neighbourRows
+        );
+
+        return [
+            ...neighbourRows,
+            ...filteredNeighbourRows
+        ];
+    }
+
+
+    async function promoteNeighbourToSelected(
+        neighbour: PostcodeDistrictRow,
+        selectedRows: PostcodeDistrictRow[],
+        neighbourRows: PostcodeDistrictRow[]
+    ): Promise<NextMapData> {
+        let nextNeighboursData: PostcodeDistrictRow[]
+            = removeDistrict(neighbour.district_norm, neighbourRows)
+
+        const nextPostcodesData: PostcodeDistrictRow[] = [neighbour, ...selectedRows];
+        nextNeighboursData =
+            await fetchAndMergeNeighbourDistricts(
+                neighbour.district_norm,
+                nextPostcodesData,
+                nextNeighboursData);
+
+        const result: NextMapData = { nextPostcodesData, nextNeighboursData };
+        return result;
+    }
+
+    async function handleMapNeighbourClick(
+        neighbour: PostcodeDistrictRow
+    ): Promise<void> {
+        const result: NextMapData =
+            await promoteNeighbourToSelected(
+                neighbour,
+                postcodesData,
+                neighboursData
+            );
+
+        setPostcodesData(result.nextPostcodesData);
+        setNeighboursData(result.nextNeighboursData);
+    }
+
+
     async function fetchNeighbourRows(
         district_norm: string
     ): Promise<PostcodeDistrictRow[] | null> {
@@ -98,18 +213,24 @@ export default function HomePage() {
         return await response.json() as PostcodeDistrictRow[];
     }
 
-    function filterDuplicatePostcodes(
-        target: PostcodeDistrictRow[],
+    async function addNewPostcodeToMap(
+        district_norm: string,
         selectedRows: PostcodeDistrictRow[],
-        neighbourRows: PostcodeDistrictRow[]) {
-        const existingDistricts = new Set<string>([
-            ...selectedRows.map((row) => row.district_norm),
-            ...neighbourRows.map((row) => row.district_norm),
-        ]);
+        neighbourRows: PostcodeDistrictRow[]
+    ): Promise<NextMapData> {
+        const postcodeResponseData = await fetchPostcodeDistrictRow(district_norm);
+        if ( ! postcodeResponseData ) {
+            return { nextPostcodesData: selectedRows, nextNeighboursData: neighbourRows};
+        }
+        const nextPostcodesData = [...neighbourRows, postcodeResponseData];
 
-        return target.filter((row) => {
-            return ! existingDistricts.has(row.district_norm);
-        });
+        const neighboursResponseData = await fetchNeighbourRows(district_norm);
+        if ( ! neighboursResponseData ) {
+            return { nextPostcodesData: nextPostcodesData, nextNeighboursData: neighbourRows };
+        }
+        const nextNeighboursData = [...neighboursResponseData, ...neighbourRows];
+
+        return { nextPostcodesData: nextPostcodesData, nextNeighboursData: nextNeighboursData };
     }
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -125,8 +246,8 @@ export default function HomePage() {
         const normalised = validationResult.value;
         setInput(normalised);
 
-        const inList = postcodesData.some((row) => row.district_norm === normalised);
-        if ( inList ) {
+        const inSelected = postcodesData.some((row) => row.district_norm === normalised);
+        if ( inSelected ) {
             setErrorMessage("District already added to list.");
             return;
         }
@@ -136,25 +257,25 @@ export default function HomePage() {
 
         const findInNeighbours = neighboursData.find((row) => row.district_norm === normalised);
         if ( findInNeighbours ) {
-            nextNeighboursData = nextNeighboursData.filter((row) => row.district_norm !== normalised);
-            nextPostcodesData = [...nextPostcodesData, findInNeighbours];
+            const result: NextMapData = await promoteNeighbourToSelected(
+                findInNeighbours,
+                nextPostcodesData,
+                nextNeighboursData);
+
+            nextPostcodesData = result.nextPostcodesData;
+            nextNeighboursData = result.nextNeighboursData;
         } else {
-            const postcodeResponseData = await fetchPostcodeDistrictRow(normalised);
-            if ( ! postcodeResponseData ) return;
+            const result: NextMapData = await addNewPostcodeToMap(
+                normalised,
+                nextPostcodesData,
+                nextNeighboursData
+            );
 
-            nextPostcodesData = [...nextPostcodesData, postcodeResponseData];
+            nextPostcodesData = result.nextPostcodesData;
+            nextNeighboursData = result.nextNeighboursData;
         }
+
         setInput("");
-
-        const neighboursResponseData = await fetchNeighbourRows(normalised);
-        if ( ! neighboursResponseData ) return;
-
-        const filteredNeighbourRows= filterDuplicatePostcodes(
-            neighboursResponseData,
-            nextPostcodesData,
-            nextNeighboursData);
-        nextNeighboursData = [...nextNeighboursData, ...filteredNeighbourRows];
-
         setPostcodesData(nextPostcodesData);
         setNeighboursData(nextNeighboursData);
     }
