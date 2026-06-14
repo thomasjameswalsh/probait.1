@@ -28,6 +28,12 @@ if ( ! connectionString ) {
     throw new Error("DATABASE_URL_UNPOOLED does not exist.");
 }
 
+function isBlankMigration(sql: string): boolean {
+    const withoutBlockComments = sql.replace(/\/\*[\s\S]*?\*\//g, "");
+    const withoutLineComments = withoutBlockComments.replace(/--.*$/gm, "");
+    return withoutLineComments.trim().length === 0;
+}
+
 function parseMigrationFilename(filename: string): {
     version: string;
     name: string;
@@ -81,6 +87,7 @@ async function loadMigrationFile(filename: string): Promise<MigrationFile> {
 
     const filepath = path.join(MIGRATIONS_DIR, filename);
     const sql = await fs.readFile(filepath, "utf8");
+
     const checksum = createHash("sha256").update(sql).digest("hex");
 
     return {
@@ -96,6 +103,12 @@ async function applyMigration(
     client: Client,
     migration: MigrationFile
 ): Promise<void> {
+
+    if ( isBlankMigration(migration.sql) ) {
+        console.log(`Blank migration: ${migration.filename} skipped.`);
+        return;
+    }
+
     console.log(`Applying migration: ${migration.filename}`);
 
     await client.query("BEGIN");
