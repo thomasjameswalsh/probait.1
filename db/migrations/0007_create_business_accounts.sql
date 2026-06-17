@@ -22,8 +22,8 @@ CREATE TABLE IF NOT EXISTS business_accounts (
 
     CONSTRAINT business_accounts_contact_name_not_empty_chk
     CHECK (
-              contact_name IS NULL
-              OR length(trim(contact_name)) > 0
+        contact_name IS NULL
+        OR length(trim(contact_name)) > 0
     ),
 
     CONSTRAINT business_accounts_notification_email_not_empty_chk
@@ -31,27 +31,27 @@ CREATE TABLE IF NOT EXISTS business_accounts (
 
     CONSTRAINT business_accounts_phone_e164_not_empty_chk
     CHECK (
-              phone_e164 IS NULL
-              OR length(trim(phone_e164)) > 0
+        phone_e164 IS NULL
+        OR length(trim(phone_e164)) > 0
     ),
 
     CONSTRAINT business_accounts_companies_house_number_not_empty_chk
     CHECK (
-              companies_house_number IS NULL
-              OR length(trim(companies_house_number)) > 0
+        companies_house_number IS NULL
+        OR length(trim(companies_house_number)) > 0
     ),
 
     CONSTRAINT business_accounts_active_requires_not_closed_chk
     CHECK (
-              active = false
-              OR closed_at IS NULL
-          )
-    );
+        active = false
+        OR closed_at IS NULL
+    )
+);
 
 CREATE OR REPLACE TRIGGER business_accounts_set_updated_at
     BEFORE UPDATE ON business_accounts
-                      FOR EACH ROW
-                      EXECUTE FUNCTION set_updated_at();
+        FOR EACH ROW
+        EXECUTE FUNCTION set_updated_at();
 
 CREATE INDEX IF NOT EXISTS business_accounts_active_idx
     ON business_accounts (active);
