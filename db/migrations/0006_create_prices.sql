@@ -14,6 +14,12 @@ CREATE TABLE IF NOT EXISTS prices (
 
     currency text NOT NULL DEFAULT 'GBP',
 
+    CONSTRAINT prices_currency_uppercase_chk
+        CHECK (currency = upper(currency)),
+
+    CONSTRAINT prices_currency_gbp_chk
+        CHECK (currency = 'GBP'),
+
     CONSTRAINT prices_version_positive_chk
         CHECK (version > 0),
 
