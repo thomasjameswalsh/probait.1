@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS business_billing_runs (
         UNIQUE (business_billing_cycle_id, id),
 
     CONSTRAINT business_billing_runs_period_order_chk
-        CHECK (period_end >= period_start),
+        CHECK (period_end > period_start),
 
     CONSTRAINT business_billing_runs_amount_non_negative_chk
         CHECK (amount_minor >= 0),
