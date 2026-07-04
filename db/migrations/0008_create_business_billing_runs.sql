@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS business_billing_runs (
     CONSTRAINT business_billing_runs_business_account_id_fk
         FOREIGN KEY (business_account_id)
         REFERENCES business_accounts (id)
-        ON DELETE RESTRICT;
+        ON DELETE RESTRICT,
 
     CONSTRAINT business_billing_runs_cycle_id_run_id_unique
         UNIQUE (business_billing_cycle_id, id),

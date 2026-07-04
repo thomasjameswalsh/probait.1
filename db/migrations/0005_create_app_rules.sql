@@ -29,12 +29,7 @@ CREATE TABLE IF NOT EXISTS app_rules (
 
     CONSTRAINT app_rules_effective_range_chk
         CHECK (effective_to IS NULL OR effective_to > effective_from)
-    );
-
-CREATE OR REPLACE TRIGGER app_rules_set_updated_at
-    BEFORE UPDATE ON app_rules
-    FOR EACH ROW
-        EXECUTE FUNCTION set_updated_at();
+);
 
 CREATE UNIQUE INDEX IF NOT EXISTS app_rules_one_active_idx
     ON app_rules (active)

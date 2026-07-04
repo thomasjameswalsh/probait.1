@@ -34,11 +34,6 @@ CREATE TABLE IF NOT EXISTS lead_purchases (
         REFERENCES prices (version)
         ON DELETE RESTRICT,
 
-    CONSTRAINT lead_purchases_price_version_fk
-        FOREIGN KEY (price_version)
-        REFERENCES prices (version)
-        ON DELETE RESTRICT,
-
     CONSTRAINT lead_purchases_purchase_type_chk
     CHECK (
         purchase_type IN (

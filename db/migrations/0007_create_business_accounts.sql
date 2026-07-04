@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS business_accounts (
     clerk_user_id text NOT NULL UNIQUE,
     business_name text NOT NULL,
 
-    constact_forenames text,
+    contact_forenames text,
     contact_surname text NOT NULL,
     notification_email text NOT NULL,
     phone_e164 text,
@@ -42,14 +42,6 @@ CREATE TABLE IF NOT EXISTS business_accounts (
         CHECK (
             length(trim(business_name)) > 0
             AND length(business_name) <= 255
-        ),
-
-    CONSTRAINT business_accounts_contact_name_valid_chk
-        CHECK (
-            contact_name IS NULL
-            OR (
-                length(trim(contact_name)) > 0
-                AND length(contact_name) <= 255 )
         ),
 
     CONSTRAINT business_accounts_notification_email_valid_chk

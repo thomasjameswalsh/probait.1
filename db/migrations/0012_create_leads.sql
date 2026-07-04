@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS leads (
 
     customer_forenames text,
     customer_surname text NOT NULL,
-    customer title text,
+    customer_title text,
 
     phone_e164 text NOT NULL,
     email text,
@@ -28,10 +28,10 @@ CREATE TABLE IF NOT EXISTS leads (
     updated_at timestamptz NOT NULL DEFAULT now(),
 
     CONSTRAINT leads_reference_code_length_chk
-    CHECK (
-        length(trim(reference_code)) > 0
-        AND length(reference_code) <= 255
-    ),
+        CHECK (
+            length(trim(reference_code)) > 0
+            AND length(reference_code) <= 255
+        ),
 
     CONSTRAINT leads_lead_type_valid_chk
     CHECK (
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS leads (
                 length(trim(customer_title)) > 0
                 AND length(customer_title) <= 32
             )
-        )
+        ),
 
     CONSTRAINT leads_postcode_full_length_chk
     CHECK (

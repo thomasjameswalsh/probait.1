@@ -34,12 +34,7 @@ CREATE TABLE IF NOT EXISTS prices (
 
     CONSTRAINT prices_effective_range_chk
         CHECK (effective_to IS NULL OR effective_to > effective_from)
-    );
-
-CREATE OR REPLACE TRIGGER prices_set_updated_at
-    BEFORE UPDATE ON prices
-    FOR EACH ROW
-        EXECUTE FUNCTION set_updated_at();
+);
 
 CREATE UNIQUE INDEX IF NOT EXISTS prices_one_active_idx
     ON prices (active)

@@ -7,4 +7,4 @@ CREATE OR REPLACE FUNCTION set_updated_at()
        NEW.updated_at = now();
        RETURN NEW;
    END;
-   $$
+   $$;
