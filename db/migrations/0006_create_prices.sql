@@ -38,8 +38,8 @@ CREATE TABLE IF NOT EXISTS prices (
 
 CREATE OR REPLACE TRIGGER prices_set_updated_at
     BEFORE UPDATE ON prices
-                      FOR EACH ROW
-                      EXECUTE FUNCTION set_updated_at();
+    FOR EACH ROW
+        EXECUTE FUNCTION set_updated_at();
 
 CREATE UNIQUE INDEX IF NOT EXISTS prices_one_active_idx
     ON prices (active)

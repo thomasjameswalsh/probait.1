@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS postcode_districts (
 CREATE OR REPLACE TRIGGER postcode_districts_set_updated_at
     BEFORE UPDATE ON postcode_districts
     FOR EACH ROW
-    EXECUTE FUNCTION set_updated_at();
+        EXECUTE FUNCTION set_updated_at();
 
 CREATE INDEX IF NOT EXISTS postcode_districts_geom_idx
 ON postcode_districts USING gist (geom);

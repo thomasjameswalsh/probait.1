@@ -3,64 +3,82 @@ CREATE TABLE IF NOT EXISTS business_accounts (
 
     clerk_user_id text NOT NULL UNIQUE,
     business_name text NOT NULL,
-    contact_name text,
+
+    constact_forenames text,
+    contact_surname text NOT NULL,
     notification_email text NOT NULL,
     phone_e164 text,
     companies_house_number text,
 
     active boolean NOT NULL DEFAULT true,
+    features_suspended_at timestamptz,
     closed_at timestamptz,
 
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
 
+    CONSTRAINT business_accounts_contact_forenames_valid_chk
+        CHECK (
+            contact_forenames IS NULL
+            OR (
+                length(trim(contact_forenames)) > 0
+                AND length(contact_forenames) <= 255
+            )
+        ),
+
+    CONSTRAINT business_accounts_contact_surname_valid_chk
+        CHECK (
+            length(trim(contact_surname)) > 0
+            AND length(contact_surname) <= 255
+        ),
+
     CONSTRAINT business_accounts_clerk_user_id_valid_chk
-    CHECK (
-        length(trim(clerk_user_id)) > 0
-        AND length(clerk_user_id) <= 255
-    ),
+        CHECK (
+            length(trim(clerk_user_id)) > 0
+            AND length(clerk_user_id) <= 255
+        ),
 
     CONSTRAINT business_accounts_business_name_valid_chk
-    CHECK (
-        length(trim(business_name)) > 0
-        AND length(business_name) <= 255
-    ),
+        CHECK (
+            length(trim(business_name)) > 0
+            AND length(business_name) <= 255
+        ),
 
     CONSTRAINT business_accounts_contact_name_valid_chk
-    CHECK (
-        contact_name IS NULL
-        OR (
-            length(trim(contact_name)) > 0
-            AND length(contact_name) <= 255 )
-    ),
+        CHECK (
+            contact_name IS NULL
+            OR (
+                length(trim(contact_name)) > 0
+                AND length(contact_name) <= 255 )
+        ),
 
     CONSTRAINT business_accounts_notification_email_valid_chk
-    CHECK (
-        length(trim(notification_email)) > 0
-        AND length(notification_email) <= 320
-    ),
+        CHECK (
+            length(trim(notification_email)) > 0
+            AND length(notification_email) <= 320
+        ),
 
     CONSTRAINT business_accounts_phone_e164_valid_chk
-    CHECK (
-        phone_e164 IS NULL
-        OR (
-            length(trim(phone_e164)) > 0
-            AND length(phone_e164) <= 32 )
-    ),
+        CHECK (
+            phone_e164 IS NULL
+            OR (
+                length(trim(phone_e164)) > 0
+                AND length(phone_e164) <= 32 )
+        ),
 
     CONSTRAINT business_accounts_companies_house_number_valid_chk
-    CHECK (
-        companies_house_number IS NULL
-        OR (
-            length(trim(companies_house_number)) > 0
-            AND length(companies_house_number) <= 32 )
-    ),
+        CHECK (
+            companies_house_number IS NULL
+            OR (
+                length(trim(companies_house_number)) > 0
+                AND length(companies_house_number) <= 32 )
+        ),
 
     CONSTRAINT business_accounts_active_requires_not_closed_chk
-    CHECK (
-        active = false
-        OR closed_at IS NULL
-    )
+        CHECK (
+            active = false
+            OR closed_at IS NULL
+        )
 );
 
 CREATE OR REPLACE TRIGGER business_accounts_set_updated_at
