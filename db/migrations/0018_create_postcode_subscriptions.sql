@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS postcode_subscriptions (
 
     removal_requested_at timestamptz,
     removal_effective_at timestamptz,
-    ended_at timestamptz,
 
     active boolean NOT NULL DEFAULT true,
 
@@ -20,18 +19,12 @@ CREATE TABLE IF NOT EXISTS postcode_subscriptions (
     CONSTRAINT business_postcode_subscriptions_business_account_fk
         FOREIGN KEY (business_account_id)
         REFERENCES business_accounts (id)
-        ON DELETE RESTRICT;
+        ON DELETE RESTRICT,
 
     CONSTRAINT business_postcode_subscriptions_district_norm_valid_chk
         CHECK (
             length(trim(district_norm)) > 0
             AND length(district_norm) <= 16
-        ),
-
-    CONSTRAINT business_postcode_subscriptions_started_before_ended_chk
-        CHECK (
-            ended_at IS NULL
-            OR ended_at >= started_at
         ),
 
     CONSTRAINT business_postcode_subscriptions_removal_dates_chk
@@ -41,19 +34,20 @@ CREATE TABLE IF NOT EXISTS postcode_subscriptions (
         )
 );
 
-CREATE OR REPLACE TRIGGER business_postcode_subscriptions_set_updated_at
-BEFORE UPDATE ON business_postcode_subscriptions
+CREATE OR REPLACE TRIGGER postcode_subscriptions_set_updated_at
+BEFORE UPDATE ON postcode_subscriptions
 FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 
-CREATE UNIQUE INDEX IF NOT EXISTS business_postcode_subscriptions_business_district_uidx
-    ON business_postcode_subscriptions (business_account_id, district_norm);
-
-CREATE INDEX IF NOT EXISTS business_postcode_subscriptions_active_business_idx
-    ON business_postcode_subscriptions (business_account_id)
+CREATE UNIQUE INDEX IF NOT EXISTS postcode_subscriptions_business_district_uidx
+    ON postcode_subscriptions (business_account_id, district_norm)
     WHERE active = true;
 
-CREATE INDEX IF NOT EXISTS business_postcode_subscriptions_removal_effective_idx
-    ON business_postcode_subscriptions (removal_effective_at)
+CREATE INDEX IF NOT EXISTS postcode_subscriptions_active_business_idx
+    ON postcode_subscriptions (business_account_id)
+    WHERE active = true;
+
+CREATE INDEX IF NOT EXISTS postcode_subscriptions_removal_effective_idx
+    ON postcode_subscriptions (removal_effective_at)
     WHERE active = true
     AND removal_effective_at IS NOT NULL;

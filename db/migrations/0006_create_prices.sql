@@ -8,14 +8,11 @@ CREATE TABLE IF NOT EXISTS prices (
     effective_to timestamptz,
 
     base_subscription_minor integer NOT NULL DEFAULT 3200,
-    priority_subscription_minor integer NOT NULL DEFAULT 2400,
+    postcode_subscription_minor integer NOT NULL DEFAULT 2400,
     lock_minor integer NOT NULL DEFAULT 1200,
     lead_minor integer NOT NULL DEFAULT 1600,
 
     currency text NOT NULL DEFAULT 'GBP',
-
-    CONSTRAINT prices_currency_uppercase_chk
-        CHECK (currency = upper(currency)),
 
     CONSTRAINT prices_currency_gbp_chk
         CHECK (currency = 'GBP'),
