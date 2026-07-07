@@ -23,8 +23,8 @@ CREATE TABLE IF NOT EXISTS prices (
     CONSTRAINT prices_base_subscription_non_negative_chk
         CHECK (base_subscription_minor >= 0),
 
-    CONSTRAINT prices_priority_subscription_non_negative_chk
-        CHECK (priority_subscription_minor >= 0),
+    CONSTRAINT prices_postcode_subscription_non_negative_chk
+        CHECK (postcode_subscription_minor >= 0),
 
     CONSTRAINT prices_lock_non_negative_chk
         CHECK (lock_minor >= 0),
