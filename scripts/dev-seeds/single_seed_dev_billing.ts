@@ -30,11 +30,15 @@ const QUERY_INSERT_DUMMY_BUSINESS_ACCOUNT =
     INSERT INTO business_accounts (
         clerk_user_id,
         business_name,
+        contact_forenames,
+        contact_surname,
         notification_email
     )
     VALUES (
         'dev_clerk_user_001',
         'Dev Test Business',
+        'Alicia',
+        'Keys',
         'dev@example.com'
     )
     ON CONFLICT (clerk_user_id) DO UPDATE

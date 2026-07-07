@@ -32,15 +32,15 @@ const QUERY_GET_BILLING_CYCLE_BUSINESS_ID =
     FROM business_billing_cycles
     WHERE id = $1
     AND active = true
-    AND status = 'ACTIVE';
+    AND billing_state  = 'ACTIVE';
     `;
 
 const QUERY_GET_CURRENT_PRICE_ROW =
     `
     SELECT
         currency,
-        base_subscription_minor AS "baseSubscriptionMinor"
-        priority_subscription_minor AS "prioritySubscriptionMinor"
+        base_subscription_minor AS "baseSubscriptionMinor",
+        postcode_subscription_minor AS "postcodeSubscriptionMinor"
     FROM prices
     WHERE active = true
     ORDER BY effective_from DESC
