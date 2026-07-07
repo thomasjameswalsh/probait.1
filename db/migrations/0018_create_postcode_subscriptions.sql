@@ -6,7 +6,6 @@ CREATE TABLE IF NOT EXISTS postcode_subscriptions (
     district_norm text NOT NULL,
 
     started_at timestamptz NOT NULL,
-    first_billing_at timestamptz NOT NULL,
 
     removal_requested_at timestamptz,
     removal_effective_at timestamptz,

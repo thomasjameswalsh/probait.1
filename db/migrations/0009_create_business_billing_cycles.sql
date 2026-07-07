@@ -11,7 +11,6 @@ CREATE TABLE IF NOT EXISTS business_billing_cycles (
 
     current_period_start timestamptz NOT NULL,
     current_period_end timestamptz NOT NULL,
-    next_billing_at timestamptz NOT NULL,
 
     last_billed_at timestamptz,
     last_billing_run_id uuid,
@@ -48,9 +47,6 @@ CREATE TABLE IF NOT EXISTS business_billing_cycles (
 
     CONSTRAINT business_billing_cycles_current_period_order_chk
         CHECK (current_period_start < current_period_end),
-
-    CONSTRAINT business_billing_cycles_next_billing_at_valid_chk
-        CHECK (next_billing_at >= current_period_start),
 
     CONSTRAINT business_billing_cycles_past_due_state_chk
         CHECK (
@@ -133,8 +129,8 @@ CREATE INDEX IF NOT EXISTS business_billing_cycles_active_idx
 CREATE INDEX IF NOT EXISTS business_billing_cycles_billing_state_idx
     ON business_billing_cycles (billing_state);
 
-CREATE INDEX IF NOT EXISTS business_billing_cycles_next_billing_at_idx
-    ON business_billing_cycles (next_billing_at)
+CREATE INDEX IF NOT EXISTS business_billing_cycles_current_period_end_idx
+    ON business_billing_cycles (current_period_end)
     WHERE active = true
     AND billing_state = 'ACTIVE';
 
