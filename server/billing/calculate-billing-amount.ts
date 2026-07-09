@@ -12,7 +12,7 @@ type BillingCycleRow = {
     businessAccountId: string;
 }
 
-type BillingAmountForCycle = {
+export type BillingAmountForCycle = {
     businessBillingCycleId: string;
     businessAccountId: string;
     currency: "GBP";
@@ -60,11 +60,11 @@ const QUERY_COUNT_POSTCODE_SUBSCRIPTIONS =
 // ONLY EXPORT FOR THIS SCRIPT
 export async function calculateBillingAmountForCycle(
     client: ClientBase,
-    businessBillingCycleId: string,
+    billing_cycle_id: string
 ): Promise<BillingAmountForCycle> {
     const billingCycle: BillingCycleRow = await getBillingCycle(
         client,
-        businessBillingCycleId,
+        billing_cycle_id
     );
 
     const activePrice: PriceRow = await getActivePrice(client);
@@ -82,7 +82,7 @@ export async function calculateBillingAmountForCycle(
         ( activePrice.baseSubscriptionMinor + postcodeSubscriptionsTotalMinor );
 
     return {
-        businessBillingCycleId,
+        businessBillingCycleId: billing_cycle_id,
         businessAccountId: billingCycle.businessAccountId,
         currency: activePrice.currency,
         baseSubscriptionMinor: activePrice.baseSubscriptionMinor,
@@ -97,17 +97,18 @@ export async function calculateBillingAmountForCycle(
 
 async function getBillingCycle(
     client: ClientBase,
-    businessBillingCycleId: string,
+    billing_cycle_id: string
 ): Promise<BillingCycleRow> {
     const result = await client.query<BillingCycleRow>(
         QUERY_GET_BILLING_CYCLE_BUSINESS_ID,
-        [businessBillingCycleId],
+        [billing_cycle_id],
     );
 
     const row: BillingCycleRow = result.rows[0];
-
     if ( !row ) {
-        throw new Error(`Billing cycle not found: ${businessBillingCycleId}`);
+        throw new Error(
+            `Billing cycle not found: ${billing_cycle_id}`
+        );
     }
 
     return row;
