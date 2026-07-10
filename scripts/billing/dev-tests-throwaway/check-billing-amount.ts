@@ -1,6 +1,6 @@
 import { Client } from "pg";
 import { loadEnvConfig } from "@next/env";
-import { calculateBillingAmountForCycle } from "@/server/billing/calculate-billing-amount";
+import { calculateBillingAmountForCycle } from "@/server/billing/modules/due-account/calculate-billing-amount";
 
 loadEnvConfig(process.cwd());
 

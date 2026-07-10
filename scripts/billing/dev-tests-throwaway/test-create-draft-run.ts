@@ -1,7 +1,7 @@
 import { Client } from "pg";
 import { loadEnvConfig } from "@next/env";
 
-import { createDraftBillingRunForCycle } from "@/server/billing/create-draft-billing-run";
+import { createDraftBillingRunForCycle } from "@/server/billing/modules/due-account/create-draft-billing-run";
 
 loadEnvConfig(process.cwd());
 
