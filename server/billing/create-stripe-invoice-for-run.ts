@@ -1,5 +1,6 @@
 import type { Client } from "pg";
 import type Stripe  from "stripe";
+import type { DraftBillingRunForCycleIdentity } from "./create-draft-billing-run";
 
 import { stripe } from "./stripe-client";
 
@@ -8,16 +9,16 @@ import { stripe } from "./stripe-client";
 
 
 export type OpenBillingRunInvoice = {
-    billing_run_id: string;
+    businessBillingRunId: string;
     stripeInvoiceId: string;
     stripePaymentIntentId: string | null;
     status: "OPEN";
 };
 
 type DraftRunForStripe = {
-    billing_run_id: string;
-    billing_cycle_id: string;
-    business_account_id: string;
+    businessBillingRunId: string;
+    businessBillingCycleId: string;
+    businessAccountId: string;
     amountMinor: number;
     currency: "GBP";
     periodStart: Date;
@@ -32,8 +33,8 @@ type DraftRunForStripe = {
 const QUERY_BILLING_RUN_AND_CYCLE_INFORMATION_FOR_STRIPE =
     `
     SELECT
-        r.id AS "billing_run_id",
-        r.business_billing_cycle_id AS "billing_cycle_id",
+        r.id AS "businessBillingRunId",
+        r.business_billing_cycle_id AS "businessBillingCycleId",
         r.amount_minor AS "amountMinor",
         r.currency,
         r.period_start AS "periodStart",
@@ -71,25 +72,26 @@ const QUERY_UPDATE_BUSINESS_BILLING_RUNS_WITH_FINALIZED_INVOICE =
 
 async function getDraftRunForStripe(
     client: Client,
-    billing_run_id: string,
-    billing_cycle_id: string,
-    business_account_id: string
+    businessBillingRunId: string,
+    businessBillingCycleId: string,
+    businessAccountId: string
 ): Promise<DraftRunForStripe> {
+
     const result = await client.query<DraftRunForStripe>(
         QUERY_BILLING_RUN_AND_CYCLE_INFORMATION_FOR_STRIPE,
-        [billing_run_id, billing_cycle_id, business_account_id]
+        [businessBillingRunId, businessBillingCycleId, businessAccountId]
     );
 
-    const run = result.rows[0];
-    if ( ! run ) {
-        throw new Error(`Draft billing run not found: ${billing_run_id}`);
+    const draftRunForStripe: DraftRunForStripe = result.rows[0];
+    if ( ! draftRunForStripe ) {
+        throw new Error(`Draft billing run not found: ${businessBillingRunId}`);
     }
 
-    if ( ! run.stripeCustomerId ) {
-        throw new Error(`Billing run ${billing_run_id} has no Stripe customer reference.`);
+    if ( ! draftRunForStripe.stripeCustomerId ) {
+        throw new Error(`Billing run ${businessBillingRunId} has no Stripe customer reference.`);
     }
 
-    return run;
+    return draftRunForStripe;
 }
 
 
@@ -98,51 +100,54 @@ async function getDraftRunForStripe(
 
 export async function createStripeInvoiceForRun(
     client: Client,
-    billing_run_id: string,
-    billing_cycle_id: string,
-    billing_account_id: string
+    {
+        businessBillingRunId: businessBillingRunId,
+        businessBillingCycleId: businessBillingCycleId,
+        businessAccountId: businessAccountId
+    }: DraftBillingRunForCycleIdentity
 ): Promise<OpenBillingRunInvoice> {
 
-    const run: DraftRunForStripe = await getDraftRunForStripe(
+    const draftRunForStripe: DraftRunForStripe = await getDraftRunForStripe(
         client,
-        billing_run_id,
-        billing_cycle_id,
-        billing_account_id);
+        businessBillingRunId,
+        businessBillingCycleId,
+        businessAccountId);
 
     const invoiceDescription: string =
-        `Monthly subscription ${formatDate(run.periodStart)} to ${formatDate(run.periodEnd)}.`;
+        `Monthly subscription ${formatDate(draftRunForStripe.periodStart)} to 
+        ${formatDate(draftRunForStripe.periodEnd)}.`;
     const invoice = await stripe.invoices.create(
         {
-            customer: run.stripeCustomerId,
+            customer: draftRunForStripe.stripeCustomerId,
             collection_method: "charge_automatically",
             auto_advance: false,
             metadata: {
-                billing_run_id: run.billing_run_id,
-                billing_cycle_id: run.billing_cycle_id,
-                business_account_id: run.business_account_id
+                billing_run_id: draftRunForStripe.businessBillingRunId,
+                billing_cycle_id: draftRunForStripe.businessBillingCycleId,
+                business_account_id: draftRunForStripe.businessAccountId
             },
             description: invoiceDescription,
         },
         {
-            idempotencyKey: `create-invoice${run.billing_run_id}`
+            idempotencyKey: `create-invoice${draftRunForStripe.businessBillingRunId}`
         },
     );
 
     await stripe.invoiceItems.create(
         {
-            customer:run.stripeCustomerId,
+            customer: draftRunForStripe.stripeCustomerId,
             invoice: invoice.id,
-            amount: run.amountMinor,
-            currency: run.currency.toLowerCase(),
+            amount: draftRunForStripe.amountMinor,
+            currency: draftRunForStripe.currency.toLowerCase(),
             description: "Probait monthly subscription",
             metadata: {
-                billing_run_id: run.billing_run_id,
-                billing_cycle_id: run.billing_cycle_id,
-                business_account_id: run.business_account_id
+                billing_run_id: draftRunForStripe.businessBillingRunId,
+                billing_cycle_id: draftRunForStripe.businessBillingCycleId,
+                business_account_id: draftRunForStripe.businessAccountId
             }
         },
         {
-            idempotencyKey: `create-invoice-item:${run.billing_run_id}`
+            idempotencyKey: `create-invoice-item:${draftRunForStripe.businessBillingRunId}`
         },
     );
 
@@ -153,7 +158,7 @@ export async function createStripeInvoiceForRun(
             expand: ["payments.data.payment.payment_intent"],
         },
         {
-            idempotencyKey: `finalize-invoice:${run.billing_run_id}`,
+            idempotencyKey: `finalize-invoice:${draftRunForStripe.businessBillingRunId}`,
         },
     );
 
@@ -161,17 +166,17 @@ export async function createStripeInvoiceForRun(
 
     const billingRunUpdateResult = await client.query<{ billing_run_id: string}>(
         QUERY_UPDATE_BUSINESS_BILLING_RUNS_WITH_FINALIZED_INVOICE,
-        [finalizedInvoice.id, stripePaymentIntentId, run.billing_run_id]
+        [finalizedInvoice.id, stripePaymentIntentId, draftRunForStripe.businessBillingRunId]
     );
 
     if ( ! billingRunUpdateResult.rows[0] ) {
         throw new Error(
-            `Could not mark billing run as OPEN: ${run.billing_run_id}`
+            `Could not mark billing run as OPEN: ${draftRunForStripe.businessBillingRunId}`
         );
     }
 
     return {
-        billing_run_id: run.billing_run_id,
+        businessBillingRunId: draftRunForStripe.businessBillingRunId,
         stripeInvoiceId: finalizedInvoice.id,
         stripePaymentIntentId,
         status: "OPEN",
@@ -200,10 +205,15 @@ function getPaymentIntentIdFromInvoice(invoice: Stripe.Invoice): string | null {
     return paymentIntent.id;
 }
 
+
 ///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\
 
 
 function formatDate(date: Date): string {
     return date.toISOString().slice(0, 10);
 }
+
+
+///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\
+
 

@@ -1,6 +1,8 @@
 import type { ClientBase } from "pg";
 
-///////////////////////////////////////////////////////////////////////
+
+///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\
+
 
 type PriceRow = {
     currency: "GBP";
@@ -8,7 +10,8 @@ type PriceRow = {
     postcodeSubscriptionMinor: number;
 };
 
-type BillingCycleRow = {
+type BillingCycleIdentity = {
+    businessBillingCycleId: string;
     businessAccountId: string;
 }
 
@@ -23,16 +26,21 @@ export type BillingAmountForCycle = {
     totalMinor: number;
 };
 
-///////////////////////////////////////////////////////////////////////
+
+///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\
+
 
 const QUERY_GET_BILLING_CYCLE_BUSINESS_ID =
     `
     SELECT
+        id AS "businessBillingCycleId",
         business_account_id AS "businessAccountId"
     FROM business_billing_cycles
-    WHERE id = $1
-    AND active = true
-    AND billing_state  = 'ACTIVE';
+    WHERE 
+        id = $1
+        AND business_account_id = $2
+        AND active = true
+        AND billing_state  = 'ACTIVE';
     `;
 
 const QUERY_GET_CURRENT_PRICE_ROW =
@@ -55,16 +63,19 @@ const QUERY_COUNT_POSTCODE_SUBSCRIPTIONS =
     AND active = true
     `;
 
-///////////////////////////////////////////////////////////////////////
 
-// ONLY EXPORT FOR THIS SCRIPT
+///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\
+
+
 export async function calculateBillingAmountForCycle(
     client: ClientBase,
-    billing_cycle_id: string
+    businessBillingCycleId: string,
+    businessAccountId: string
 ): Promise<BillingAmountForCycle> {
-    const billingCycle: BillingCycleRow = await getBillingCycle(
+    const billingCycle: BillingCycleIdentity = await getBillingCycle(
         client,
-        billing_cycle_id
+        businessBillingCycleId,
+        businessAccountId
     );
 
     const activePrice: PriceRow = await getActivePrice(client);
@@ -82,7 +93,7 @@ export async function calculateBillingAmountForCycle(
         ( activePrice.baseSubscriptionMinor + postcodeSubscriptionsTotalMinor );
 
     return {
-        businessBillingCycleId: billing_cycle_id,
+        businessBillingCycleId: businessBillingCycleId,
         businessAccountId: billingCycle.businessAccountId,
         currency: activePrice.currency,
         baseSubscriptionMinor: activePrice.baseSubscriptionMinor,
@@ -93,18 +104,21 @@ export async function calculateBillingAmountForCycle(
     };
 }
 
-///////////////////////////////////////////////////////////////////////
+
+///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\
+
 
 async function getBillingCycle(
     client: ClientBase,
-    billing_cycle_id: string
-): Promise<BillingCycleRow> {
-    const result = await client.query<BillingCycleRow>(
+    billing_cycle_id: string,
+    businessAccountId: string
+): Promise<BillingCycleIdentity> {
+    const result = await client.query<BillingCycleIdentity>(
         QUERY_GET_BILLING_CYCLE_BUSINESS_ID,
-        [billing_cycle_id],
+        [billing_cycle_id, businessAccountId],
     );
 
-    const row: BillingCycleRow = result.rows[0];
+    const row: BillingCycleIdentity = result.rows[0];
     if ( !row ) {
         throw new Error(
             `Billing cycle not found: ${billing_cycle_id}`
@@ -114,7 +128,9 @@ async function getBillingCycle(
     return row;
 }
 
-///////////////////////////////////////////////////////////////////////
+
+///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\
+
 
 async function getActivePrice(
     client: ClientBase,
@@ -132,7 +148,9 @@ async function getActivePrice(
     return row;
 }
 
-///////////////////////////////////////////////////////////////////////
+
+///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\
+
 
 async function countActivePostcodeSubscriptions(
     client: ClientBase,
@@ -145,3 +163,8 @@ async function countActivePostcodeSubscriptions(
 
     return result.rows[0]?.count ?? 0;
 }
+
+
+///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\
+
+

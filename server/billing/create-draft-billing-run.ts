@@ -1,16 +1,14 @@
 import type { Client } from "pg";
 import type { BillingAmountForCycle } from "./calculate-billing-amount";
 
-import { calculateBillingAmountForCycle } from "./calculate-billing-amount";
-
 
 ///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\
 
 
-export type CreateDraftBillingRunForCycleResult = {
-    billing_run_id: string,
-    billing_cycle_id: string,
-    business_account_id: string
+export type DraftBillingRunForCycleIdentity = {
+    businessBillingRunId: string,
+    businessBillingCycleId: string,
+    businessAccountId: string
 };
 
 
@@ -52,20 +50,9 @@ const QUERY_INSERT_DRAFT_BILLING_RUN_FOR_CYCLE =
  */
 export async function createDraftBillingRunForCycle(
     client: Client,
-    billing_cycle_id: string
-): Promise<CreateDraftBillingRunForCycleResult> {
-    // Later the boss-script should run this and then pass billing-amount-for-cycle into this function
-    // The cron will run the boss-script for all due accounts
-    const billingAmountForCycle: BillingAmountForCycle = await calculateBillingAmountForCycle(
-        client,
-        billing_cycle_id
-    );
-
-    const result = await client.query<{
-        billing_run_id: string,
-        billing_cycle_id: string,
-        business_account_id: string
-    }>(
+    billingAmountForCycle: BillingAmountForCycle
+): Promise<DraftBillingRunForCycleIdentity> {
+    const result = await client.query<DraftBillingRunForCycleIdentity>(
         QUERY_INSERT_DRAFT_BILLING_RUN_FOR_CYCLE,
         [
             billingAmountForCycle.businessBillingCycleId,
@@ -74,18 +61,14 @@ export async function createDraftBillingRunForCycle(
         ]
     );
 
-    const billing_run_id = result.rows[0]?.billing_run_id;
-    if ( ! billing_run_id ) {
+    const businessBillingRunId = result.rows[0]?.businessBillingRunId;
+    if ( ! businessBillingRunId ) {
         throw new Error(
-            `Could not create billing run for cycle ${billing_cycle_id}`
+            `Could not create billing run for cycle ${billingAmountForCycle.businessBillingCycleId}`
         );
     }
 
-    return {
-        billing_run_id,
-        billing_cycle_id: result.rows[0].billing_cycle_id,
-        business_account_id: result.rows[0].business_account_id
-    };
+    return result.rows[0];
 }
 
 
