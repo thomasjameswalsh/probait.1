@@ -1,4 +1,5 @@
 import type { Client } from "pg";
+
 import type { BillingAmountForCycle } from "../modules/due-account/calculate-billing-amount";
 import type { DraftBillingRunForCycleIdentity } from "../modules/due-account/create-draft-billing-run";
 import type { OpenBillingRunInvoice } from "../modules/due-account/create-stripe-invoice-for-run";
@@ -21,12 +22,6 @@ export type RunDueBillingCycleResult = {
     businessAccountId: string;
     billingRunId: string;
     stripeInvoiceId: string;
-};
-
-type DraftBillingRunIdentity = {
-    billingRunId: string;
-    businessBillingCycleId: string;
-    businessAccountId: string;
 };
 
 

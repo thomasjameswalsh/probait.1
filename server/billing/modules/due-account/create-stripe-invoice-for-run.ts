@@ -35,11 +35,11 @@ const QUERY_BILLING_RUN_AND_CYCLE_INFORMATION_FOR_STRIPE =
     SELECT
         r.id AS "businessBillingRunId",
         r.business_billing_cycle_id AS "businessBillingCycleId",
+        r.business_account_id AS "businessAccountId",
         r.amount_minor AS "amountMinor",
         r.currency,
         r.period_start AS "periodStart",
         r.period_end AS "periodEnd",
-        c.business_account_id,
         c.stripe_customer_id AS "stripeCustomerId"
     FROM business_billing_runs r
     JOIN business_billing_cycles c
@@ -51,7 +51,6 @@ const QUERY_BILLING_RUN_AND_CYCLE_INFORMATION_FOR_STRIPE =
         AND c.business_account_id = $3
         AND r.status = 'DRAFT';
     `;
-
 
 const QUERY_UPDATE_BUSINESS_BILLING_RUNS_WITH_FINALIZED_INVOICE =
     `

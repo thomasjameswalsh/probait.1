@@ -36,7 +36,10 @@ const QUERY_INSERT_DRAFT_BILLING_RUN_FOR_CYCLE =
     WHERE 
         c.id = $1
         AND c.business_account_id = $2
-    RETURNING id, business_billing_cycle_id, business_account_id;
+    RETURNING 
+        id AS "businessBillingRunId", 
+        business_billing_cycle_id AS "businessBillingCycleId",
+        business_account_id AS "businessAccountId"
     `;
 
 
