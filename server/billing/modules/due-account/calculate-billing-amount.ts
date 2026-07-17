@@ -1,4 +1,6 @@
-import type { ClientBase } from "pg";
+import type { Client } from "pg";
+
+import { requireOneRow } from "@/server/billing/billing-helpers";
 
 
 ///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\
@@ -51,8 +53,6 @@ const QUERY_GET_CURRENT_PRICE_ROW =
         postcode_subscription_minor AS "postcodeSubscriptionMinor"
     FROM prices
     WHERE active = true
-    ORDER BY effective_from DESC
-    LIMIT 1
     `;
 
 const QUERY_COUNT_POSTCODE_SUBSCRIPTIONS =
@@ -68,7 +68,7 @@ const QUERY_COUNT_POSTCODE_SUBSCRIPTIONS =
 
 
 export async function calculateBillingAmountForCycle(
-    client: ClientBase,
+    client: Client,
     businessBillingCycleId: string,
     businessAccountId: string
 ): Promise<BillingAmountForCycle> {
@@ -93,7 +93,7 @@ export async function calculateBillingAmountForCycle(
         ( activePrice.baseSubscriptionMinor + postcodeSubscriptionsTotalMinor );
 
     return {
-        businessBillingCycleId: businessBillingCycleId,
+        businessBillingCycleId: billingCycle.businessBillingCycleId,
         businessAccountId: billingCycle.businessAccountId,
         currency: activePrice.currency,
         baseSubscriptionMinor: activePrice.baseSubscriptionMinor,
@@ -109,23 +109,18 @@ export async function calculateBillingAmountForCycle(
 
 
 async function getBillingCycle(
-    client: ClientBase,
-    billing_cycle_id: string,
+    client: Client,
+    businessBillingCycleId: string,
     businessAccountId: string
 ): Promise<BillingCycleIdentity> {
     const result = await client.query<BillingCycleIdentity>(
         QUERY_GET_BILLING_CYCLE_BUSINESS_ID,
-        [billing_cycle_id, businessAccountId],
+        [businessBillingCycleId, businessAccountId],
     );
 
-    const row: BillingCycleIdentity = result.rows[0];
-    if ( !row ) {
-        throw new Error(
-            `Billing cycle not found: ${billing_cycle_id}`
-        );
-    }
-
-    return row;
+    return requireOneRow(
+        result,
+        `Getting active billing cycle ${businessBillingCycleId} with account ${businessAccountId}`);
 }
 
 
@@ -133,19 +128,16 @@ async function getBillingCycle(
 
 
 async function getActivePrice(
-    client: ClientBase,
+    client: Client,
 ): Promise<PriceRow> {
     const result = await client.query<PriceRow>(
         QUERY_GET_CURRENT_PRICE_ROW,
     );
 
-    const row = result.rows[0];
-
-    if ( !row ) {
-        throw new Error("No active price row found");
-    }
-
-    return row;
+    return requireOneRow(
+        result,
+        `Getting active price row for billing calculation`
+    );
 }
 
 
@@ -153,7 +145,7 @@ async function getActivePrice(
 
 
 async function countActivePostcodeSubscriptions(
-    client: ClientBase,
+    client: Client,
     businessAccountId: string,
 ): Promise<number> {
     const result = await client.query<{ count: number }>(
@@ -161,7 +153,12 @@ async function countActivePostcodeSubscriptions(
         [businessAccountId],
     );
 
-    return result.rows[0]?.count ?? 0;
+    const countRow = requireOneRow(
+        result,
+        `Counting active postcode subscriptions for business account ${businessAccountId}`
+    );
+
+    return countRow.count;
 }
 
 
