@@ -1,8 +1,10 @@
 import type { Client } from "pg";
 import type { BillingAmountForCycle } from "./calculate-billing-amount";
 
-import { requireOneRow } from "@/server/billing/billing-helpers";
+import { requireOneRow } from "@/server/billing/billing-helpers"
 
+///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\
+// Responsibility: Strictly insert one eligible DRAFT billing run.
 ///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\
 
 
@@ -38,7 +40,8 @@ const QUERY_INSERT_DRAFT_BILLING_RUN_FOR_CYCLE =
     FROM business_billing_cycles c
     WHERE
         c.id = $1
-        AND c.business_account_id = $2
+        AND c. business_account_id = $2
+        AND c.active = true,
         AND c.billing_state = 'ACTIVE'
         AND c.current_period_end <= now()
         AND c.stripe_customer_id IS NOT NULL
@@ -52,11 +55,6 @@ const QUERY_INSERT_DRAFT_BILLING_RUN_FOR_CYCLE =
 ///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\
 
 
-/**
- * Inserts an initial DRAFT billing_run for the given cycle
- *      as the first step before invoice.
- * Returns the new run id and the amount details.
- */
 export async function createDraftBillingRunForCycle(
     client: Client,
     billingAmountForCycle: BillingAmountForCycle

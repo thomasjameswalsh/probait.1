@@ -1,3 +1,5 @@
+import type { Client } from "pg";
+
 import type {
     QueryResult,
     QueryResultRow,
@@ -37,6 +39,26 @@ export function optionalOneRow<T extends QueryResultRow>(
     }
 
     return result.rows[0] ?? null;
+}
+
+
+///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\
+
+
+export async function withTransaction<T>(
+    client: Client,
+    work: (client: Client) => Promise<T>,
+): Promise<T> {
+    await client.query("BEGIN");
+
+    try {
+        const result = await work(client);
+        await client.query("COMMIT");
+        return result;
+    } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+    }
 }
 
 
