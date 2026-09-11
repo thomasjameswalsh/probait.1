@@ -12,6 +12,7 @@ import {
 
 import { requireOneRow, withTransaction } from "@/scripts/query-helpers";
 import { read } from "node:fs";
+import { stripe } from "@/scripts/stripe-client";
 
 
 type PriceRow = {
@@ -246,5 +247,46 @@ async function main(): Promise<void> {
       QUERY_UPDATE_PRICE_ROW_ACTIVE_FALSE,
       [effectiveAt, currentPriceRow.id, currentPriceRow.version]
     );
+
+    await client.query(
+      QUERY_INSERT_NEXT_PRICE_ROW,
+      [
+        newVersion, 
+        effectiveAt,
+
+        newAmounts.baseSubscriptionMinor,
+        newAmounts.postcodeSubscriptionMinor,
+        newAmounts.leadMinor,
+        newAmounts.lockMinor,
+        newAmounts.leadAndLockMinor,
+
+        stripePriceIds.baseSubscriptionPriceId,
+        stripePriceIds.postcodeSubscriptionPriceId,
+        stripePriceIds.leadPriceId,
+        stripePriceIds.lockPriceId,
+        stripePriceIds.leadAndLockPriceId,
+
+        'GBP'
+      ]
+    );
   }
+
+  withTransaction(client, publishNextPriceRow);
+
+  console.log([stripePriceIds]);
+  console.log(
+    `Price version ${newVersion} published successfully,`
+  );
 }
+
+main()
+  .catch((error: unknown) => {
+    console.error(
+      error instanceof Error ? error.message : error,
+    );
+
+    process.exitCode = 1;
+  })
+  .finally(() => {
+    consoleInput.close();
+  });
