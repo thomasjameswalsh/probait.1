@@ -8,7 +8,7 @@ import { calculateBillingAmountForCycle } from "../modules/due-account/calculate
 import { createDraftBillingRunForCycle } from "../modules/due-account/create-draft-billing-run";
 import { createStripeInvoiceForRun } from "../modules/due-account/create-stripe-invoice-for-run";
 
-import { requireOneRow } from "../billing-helpers";
+import { requireOneRow } from "../../../scripts/query-helpers";
 
 
 ///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\

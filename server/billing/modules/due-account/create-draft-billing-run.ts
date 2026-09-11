@@ -1,7 +1,7 @@
 import type { Client } from "pg";
 import type { BillingAmountForCycle } from "./calculate-billing-amount";
 
-import { requireOneRow } from "@/server/billing/billing-helpers"
+import { requireOneRow } from "@/scripts/query-helpers"
 
 ///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\
 // Responsibility: Strictly insert one eligible DRAFT billing run.

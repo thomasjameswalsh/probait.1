@@ -2,7 +2,7 @@ import type { Client } from "pg";
 import type Stripe  from "stripe";
 import type { DraftBillingRunForCycleIdentity } from "./create-draft-billing-run";
 
-import { stripe } from "../../stripe-client";
+import { stripe } from "../../../../scripts/stripe-client";
 
 
 ///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\///\\\
