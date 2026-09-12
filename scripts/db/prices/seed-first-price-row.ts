@@ -36,11 +36,11 @@ const QUERY_PRICES_INSERT_PRICE_VERSION_1 =
         lock_minor,
         lead_and_lock_minor,
 
-        stripe_base_subscription_price_id,
-        stripe_postcode_subscription_price_id,
-        stripe_lead_price_id,
-        stripe_lock_price_id,
-        stripe_lead_and_lock_price_id,
+        base_subscription_stripe_price_id,
+        postcode_subscription_stripe_price_id,
+        lead_stripe_price_id,
+        lock_stripe_price_id,
+        lead_and_lock_stripe_price_id,
 
         currency
     ) VALUES (
@@ -177,6 +177,8 @@ async function main() {
         connectionString,
     });
 
+    await client.connect();
+
     const isEmpty = await client.query<{ is_empty: boolean }>(QUERY_PRICES_IS_EMPTY);
     if ( ! isEmpty.rows[0].is_empty ) {
         throw new Error("Prices table is not empty, cannot seed first price version.");
@@ -194,6 +196,17 @@ async function main() {
             [...Object.values(priceAmounts), ...Object.values(stripePriceIds)]
         );
     }
-    withTransaction(client, insertPriceRow);
+    await withTransaction(client, insertPriceRow);
 }
 
+main()
+  .catch((error: unknown) => {
+    console.error(
+      error instanceof Error ? error.message : error,
+    );
+
+    process.exitCode = 1;
+  })
+  .finally(() => {
+    consoleInput.close();
+  });

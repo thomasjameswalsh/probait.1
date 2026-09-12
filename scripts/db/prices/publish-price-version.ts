@@ -24,16 +24,16 @@ type PriceRow = {
   version: number;
 
   base_subscription_minor: number;
-  postcode_subscriptino_minor: number;
+  postcode_subscription_minor: number;
   lead_minor: number;
   lock_minor: number;
   lead_and_lock: number;
 
-  stripe_base_subscription_price_id: string | null;
-  stripe_postcode_subscription_price_id: string | null;
-  stripe_lead_price_id: string | null;
-  stripe_lock_price_id: string | null;
-  stripe_lead_and_lock_id: string | null;
+  base_subscription_stripe_price_id: string | null;
+  postcode_subscription_stripe_price_id: string | null;
+  lead_stripe_price_id: string | null;
+  lock_stripe_price_id: string | null;
+  lead_and_lock_stripe_price_id: string | null;
 };
 
 
@@ -74,11 +74,11 @@ const QUERY_INSERT_NEXT_PRICE_ROW =
     lock_minor,
     lead_and_lock_minor,
 
-    stripe_base_subscription_price_id,
-    stripe_postcode_subscription_price_id,
-    stripe_lead_price_id,
-    stripe_lock_price_id,
-    stripe_lead_and_lock_price_id,
+    base_subscription_stripe_price_id,
+    postcode_subscription_stripe_price_id,
+    lead_stripe_price_id,
+    lock_stripe_price_id,
+    lead_and_lock_stripe_price_id,
 
     currency
   )
@@ -177,6 +177,8 @@ async function main(): Promise<void> {
     connectionString,
   });
 
+  await client.connect();
+
   const currentPriceRowQueryResult = await client.query(QUERY_CURRENT_PRICE_ROW);
   const currentPriceRow = requireOneRow(currentPriceRowQueryResult, "Current active price row");
 
@@ -241,7 +243,6 @@ async function main(): Promise<void> {
   );
 
   const effectiveAt = new Date();
-  
 
   const publishNextPriceRow = async () => {
     const lockedRowQueryResult = await client.query<PriceRow>(QUERY_LOCK_PRICE_ROW_FOR_UPDATE);
@@ -275,7 +276,7 @@ async function main(): Promise<void> {
     );
   }
 
-  withTransaction(client, publishNextPriceRow);
+  await withTransaction(client, publishNextPriceRow);
 
   console.log([stripePriceIds]);
   console.log(

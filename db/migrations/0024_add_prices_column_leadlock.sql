@@ -1,20 +1,20 @@
 ALTER TABLE prices 
-    ADD COLUMN lead_and_lock INTEGER NOT NULL DEFAULT 2400;
+    ADD COLUMN lead_and_lock_minor INTEGER NOT NULL DEFAULT 2400;
 
 ALTER TABLE prices
     ADD CONSTRAINT prices_lead_and_lock_nonnegative_chk
-    CHECK (lead_and_lock >= 0);
+    CHECK (lead_and_lock_minor >= 0);
 
 ALTER TABLE prices
     ADD COLUMN lead_and_lock_stripe_price_id text;
 
-CREATE CONSTRAINT prices_postcode_subscription_stripe_price_id_valid_chk
+CREATE CONSTRAINT prices_lead_and_lock_stripe_price_id_valid_chk
     ON prices
     CHECK (
-        postcode_subscription_stripe_price_id IS NULL
+        lead_and_lock_stripe_price_id IS NULL
         OR (
-            length(trim(postcode_subscription_stripe_price_id)) > 0
-            AND length(postcode_subscription_stripe_price_id) <= 255
+            length(trim(lead_and_lock_stripe_price_id)) > 0
+            AND length(lead_and_lock_stripe_price_id) <= 255
         )
     );
 
