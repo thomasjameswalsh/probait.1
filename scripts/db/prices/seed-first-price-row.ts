@@ -4,6 +4,8 @@ import { loadEnvConfig } from "@next/env";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 
+// Run scripts using env var with flag
+// npx tsx --env-file=.env.local scripts/db/prices/init-stripe-products.ts
 
 import { 
     type PriceAmounts,

@@ -15,6 +15,10 @@ import { read } from "node:fs";
 import { stripe } from "@/scripts/stripe-client";
 
 
+// Run scripts using env var with flag
+// npx tsx --env-file=.env.local scripts/db/prices/init-stripe-products.ts
+
+
 type PriceRow = {
   id: string;
   version: number;
