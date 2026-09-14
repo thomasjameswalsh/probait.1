@@ -4,7 +4,11 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { createHash } from "node:crypto";
 
-loadEnvConfig(process.cwd());
+import {
+    startMigrationLog,
+    logMigration,
+} from "./migration-log";
+
 
 type AppliedMigration = {
     version: string;
@@ -23,16 +27,13 @@ type MigrationFile = {
 const MIGRATIONS_DIR = path.join(process.cwd(), "db", "migrations");
 const BOOTSTRAP_MIGRATION = "0000_create_schema_migrations.sql";
 
-const connectionString = process.env.DATABASE_URL_UNPOOLED;
-if ( ! connectionString ) {
-    throw new Error("DATABASE_URL_UNPOOLED does not exist.");
-}
 
 function isBlankMigration(sql: string): boolean {
     const withoutBlockComments = sql.replace(/\/\*[\s\S]*?\*\//g, "");
     const withoutLineComments = withoutBlockComments.replace(/--.*$/gm, "");
     return withoutLineComments.trim().length === 0;
 }
+
 
 function parseMigrationFilename(filename: string): {
     version: string;
@@ -42,7 +43,7 @@ function parseMigrationFilename(filename: string): {
 
     if ( !match ) {
         throw new Error(
-            `Invalid migration filename "${filename}". Expected format like "001_create_users.sql".`
+            `Invalid migration filename "${filename}". Expected format like "0001_create_users.sql".`
         );
     }
 
@@ -51,6 +52,7 @@ function parseMigrationFilename(filename: string): {
         name: match[2],
     };
 }
+
 
 async function bootstrapSchemaMigrationsTable(client: Client): Promise<void> {
     const filepath = path.join(MIGRATIONS_DIR, BOOTSTRAP_MIGRATION);
@@ -68,6 +70,7 @@ async function getMigrationFiles(): Promise<string[]> {
         .sort();
 }
 
+
 async function getAppliedMigrations(
     client: Client
 ): Promise<Map<string, AppliedMigration>> {
@@ -81,6 +84,7 @@ async function getAppliedMigrations(
         result.rows.map((migration) => [migration.version, migration])
     );
 }
+
 
 async function loadMigrationFile(filename: string): Promise<MigrationFile> {
     const { version, name } = parseMigrationFilename(filename);
@@ -99,6 +103,7 @@ async function loadMigrationFile(filename: string): Promise<MigrationFile> {
     };
 }
 
+
 async function applyMigration(
     client: Client,
     migration: MigrationFile
@@ -106,10 +111,12 @@ async function applyMigration(
 
     if ( isBlankMigration(migration.sql) ) {
         console.log(`Blank migration: ${migration.filename} skipped.`);
+        logMigration(`SKIPPED blank: ${migration.filename}`);
         return;
     }
 
     console.log(`Applying migration: ${migration.filename}`);
+    logMigration(`RUNNING ${migration.filename}`);
 
     await client.query("BEGIN");
 
@@ -125,37 +132,65 @@ async function applyMigration(
         );
 
         await client.query("COMMIT");
-
-        console.log(`\t \t Applied migration: ${migration.filename}`);
     } catch (error) {
-        await client.query("ROLLBACK");
+        logMigration(`ROLLBACK migration ${migration.filename}`);
+
+        try {
+            await client.query("ROLLBACK");
+        } catch( rollbackError ) {
+            logMigration(`ROLLBACK ERROR on ${migration.filename}`, rollbackError);
+        }
+
         throw error;
     }
+
+    console.log(`\t \t Applied migration: ${migration.filename}`);
+    logMigration(`APPLIED ${migration.filename}`);
 }
 
 async function main(): Promise<void> {
-    const client = new Client({
-        connectionString: connectionString,
-    });
+    startMigrationLog();
 
-    await client.connect();
+    let client: Client | undefined;
+    let failed = false;
+    let step = "loading environment";
 
     try {
-        await bootstrapSchemaMigrationsTable(client);
+        loadEnvConfig(process.cwd());
 
+        const connectionString = process.env.DATABASE_URL_UNPOOLED;
+
+        if ( ! connectionString ) {
+            throw new Error("DATABASE_URL_UNPOOLED does not exist.");
+        }
+
+        step = "connecting to database";
+        client = new Client({ connectionString });
+        await client.connect();
+
+        step = BOOTSTRAP_MIGRATION;
+        logMigration(`${BOOTSTRAP_MIGRATION} — RUNNING`);
+        await bootstrapSchemaMigrationsTable(client);
+        logMigration(`${BOOTSTRAP_MIGRATION} — RUN SUCCESSFULLY`);
+
+        step = "reading migration directory";
         const migrationFiles = await getMigrationFiles();
+
+        step = "reading applied migrations";
         const appliedMigrations = await getAppliedMigrations(client);
 
         for ( const filename of migrationFiles ) {
-            const migration: MigrationFile = await loadMigrationFile(filename);
+            step = filename;
 
+            const migration = await loadMigrationFile(filename);
             const appliedMigration = appliedMigrations.get(migration.version);
 
             if ( appliedMigration ) {
                 if ( migration.name !== appliedMigration.name ) {
                     throw new Error(
-                        `Migration ${migration.version} was applied as ${appliedMigration.name} ` +
-                        `but is now named as ${migration.name}.\n` +
+                        `Migration ${migration.version} was applied as ` +
+                        `${appliedMigration.name} but is now named as ` +
+                        `${migration.name}.\n` +
                         `Create a new migration instead of renaming an old one.`
                     );
                 }
@@ -168,19 +203,46 @@ async function main(): Promise<void> {
                 }
 
                 console.log(`Already applied: ${filename}`);
+                logMigration(
+                    `${filename} — SKIPPED (already run)`
+                );
                 continue;
             }
 
             await applyMigration(client, migration);
         }
+    } catch ( error ) {
+        failed = true;
+        process.exitCode = 1;
 
-        console.log("All migrations complete.");
+        console.error(error);
+        logMigration(`${step} — ERROR`, error);
     } finally {
-        await client.end();
+        if ( client ) {
+            try {
+                await client.end();
+            } catch ( error ) {
+                failed = true;
+                process.exitCode = 1;
+
+                console.error("Database connection cleanup failed:", error);
+                logMigration(
+                    "Closing database connection — ERROR",
+                    error
+                );
+            }
+        }
+
+        if ( failed || process.exitCode ) {
+            logMigration("FINISHED with errors");
+        } else {
+            logMigration("FINISHED successfully");
+            console.log("All migrations complete.");
+        }
     }
 }
 
 main().catch((error) => {
     console.error(error);
-    process.exit(1);
+    process.exitCode = 1;
 });
