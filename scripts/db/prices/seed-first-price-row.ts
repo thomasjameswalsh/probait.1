@@ -12,8 +12,7 @@ import {
     type StripePriceIds,
     createStripePriceVersion
  } from "./create-stripe-price-version";
-import { withTransaction } from "@/scripts/query-helpers";
-import { create } from "node:domain";
+import { requireOneRow, withTransaction } from "@/scripts/query-helpers";
 
 const QUERY_PRICES_IS_EMPTY = 
     `
@@ -56,6 +55,21 @@ const QUERY_PRICES_INSERT_PRICE_VERSION_1 =
     );
     `;
 
+const QUERY_GET_INSERTED_PRICE_VERSION = 
+    `
+    SELECT 
+        version,
+        effective_from,
+
+        base_subscription_minor,
+        postcode_subscription_minor,
+        lead_minor,
+        lock_minor,
+        lead_and_lock_minor
+    FROM prices
+    WHERE active = true AND version = 1;
+    `;
+
 
 loadEnvConfig(process.cwd());
 
@@ -64,6 +78,12 @@ const consoleInput = createInterface({
     input: stdin,
     output: stdout
 });
+
+
+async function checkPricesTableEmpty(client: Client): Promise<boolean> {
+    const isEmpty = await client.query<{ is_empty: boolean }>(QUERY_PRICES_IS_EMPTY);
+    return isEmpty.rows[0].is_empty;
+}
 
 
 async function readMinorAmount(
@@ -124,7 +144,7 @@ async function getPriceAmounts(): Promise<PriceAmounts> {
         },
         {
             price: "Lead and lock",
-            minor_value: 24000
+            minor_value: 2400
         }
     ]);
 
@@ -157,13 +177,90 @@ async function getPriceAmounts(): Promise<PriceAmounts> {
             
                 leadAndLockMinor: await readMinorAmount(
                   "Lead-and-lock Minor",
-                  priceAmounts.leadMinor
+                  priceAmounts.leadAndLockMinor
                 ),
               };
         }
     }
 
     return priceAmounts;
+}
+
+
+async function seedFirstPriceVersion(client: Client): Promise<void> {
+    if ( ! await checkPricesTableEmpty(client) ) {
+        throw new Error("Prices table is not empty, cannot seed first price version.");
+    }
+
+    const priceAmounts: PriceAmounts = await getPriceAmounts();
+    const version: number = 1;
+    const stripePriceIds: StripePriceIds = await createStripePriceVersion(version, priceAmounts);
+
+    const insertPriceRow = async () => {
+        const params = 
+        [
+            priceAmounts.baseSubscriptionMinor,
+            priceAmounts.postcodeSubscriptionMinor,
+            priceAmounts.leadMinor,
+            priceAmounts.lockMinor,
+            priceAmounts.leadAndLockMinor,
+
+            stripePriceIds.baseSubscriptionPriceId,
+            stripePriceIds.postcodeSubscriptionPriceId,
+            stripePriceIds.leadPriceId,
+            stripePriceIds.lockPriceId,
+            stripePriceIds.leadAndLockPriceId
+        ];
+
+        await client.query(
+            QUERY_PRICES_INSERT_PRICE_VERSION_1,
+            params
+        );
+    }
+
+    await withTransaction(client, insertPriceRow);
+
+    console.log("Price version created.");
+    
+}
+
+
+async function getInsertedPriceVersion(client: Client) {
+    console.log("VALIDATE: Query DB for price version 1...");
+
+    type PriceVersionRow = {
+        version: number,
+        effective_from: Date,
+        base_subscription_minor: number,
+        postcode_subscription_minor: number,
+        lead_minor: number,
+        lock_minor: number,
+        lead_and_lock_minor: number
+    };
+
+    if ( await checkPricesTableEmpty(client) ) {
+        throw new Error("Prices table is STILL empty, inserting price row failed.");
+    }
+
+    const insertedRowResult = await client.query<PriceVersionRow>(
+        QUERY_GET_INSERTED_PRICE_VERSION
+    );
+    const insertedRow = requireOneRow(insertedRowResult, "Price row with version = 1 and active = true not found.");
+
+    console.log("Price version 1 found. Printing row:")
+    console.table([
+        {
+            version: insertedRow.version,
+            effectiveFrom: insertedRow.effective_from,
+            base_subscription: insertedRow.base_subscription_minor,
+            postcode_subscription: insertedRow.postcode_subscription_minor,
+            lead: insertedRow.lead_minor,
+            lock: insertedRow.lock_minor,
+            lead_and_lock: insertedRow.lead_and_lock_minor
+        }
+    ]);
+
+    console.log("SUCCESS.");
 }
 
 
@@ -177,26 +274,13 @@ async function main() {
         connectionString,
     });
 
-    await client.connect();
-
-    const isEmpty = await client.query<{ is_empty: boolean }>(QUERY_PRICES_IS_EMPTY);
-    if ( ! isEmpty.rows[0].is_empty ) {
-        throw new Error("Prices table is not empty, cannot seed first price version.");
+    try {
+        await client.connect();
+        await seedFirstPriceVersion(client);
+        await getInsertedPriceVersion(client);
+    } finally {
+        await client.end();
     }
-
-    const priceAmounts: PriceAmounts = await getPriceAmounts();
-    const version: number = 1;
-    const stripePriceIds: StripePriceIds = await createStripePriceVersion(version, priceAmounts);
-
-    const effectiveAt = new Date();
-
-    const insertPriceRow = async () => {
-        await client.query(
-            QUERY_PRICES_INSERT_PRICE_VERSION_1,
-            [...Object.values(priceAmounts), ...Object.values(stripePriceIds)]
-        );
-    }
-    await withTransaction(client, insertPriceRow);
 }
 
 main()
@@ -208,5 +292,6 @@ main()
     process.exitCode = 1;
   })
   .finally(() => {
+    console.log("Script finished. Exiting.");
     consoleInput.close();
   });

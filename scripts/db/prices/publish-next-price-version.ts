@@ -10,9 +10,12 @@ import {
   createStripePriceVersion
 } from "@scripts/db/prices/create-stripe-price-version";
 
+import {
+  printCurrentActivePriceVersion
+} from "@scripts/db/prices/print-active-price-row";
+
 import { requireOneRow, withTransaction } from "@/scripts/query-helpers";
-import { read } from "node:fs";
-import { stripe } from "@/scripts/stripe-client";
+import { act } from "react";
 
 
 // Run scripts using env var with flag
@@ -22,12 +25,14 @@ import { stripe } from "@/scripts/stripe-client";
 type PriceRow = {
   id: string;
   version: number;
+  effective_from: Date;
+  effective_to: Date | null;
 
   base_subscription_minor: number;
   postcode_subscription_minor: number;
   lead_minor: number;
   lock_minor: number;
-  lead_and_lock: number;
+  lead_and_lock_minor: number;
 
   base_subscription_stripe_price_id: string | null;
   postcode_subscription_stripe_price_id: string | null;
@@ -93,6 +98,13 @@ const QUERY_INSERT_NEXT_PRICE_ROW =
 
     'GBP'
   );
+  `;
+
+
+const QUERY_GET_PRICE_VERSION = 
+  `
+  SELECT * FROM prices
+  WHERE active = true AND version = $1;
   `;
 
 
@@ -166,21 +178,9 @@ function showPrices(
 }
 
 
-async function main(): Promise<void> {
-  const connectionString = process.env.DATABASE_URL_UNPOOLED;
-
-  if ( ! connectionString ) {
-    throw new Error("Database unpooled is missing.");
-  }
-
-  const client = new Client({
-    connectionString,
-  });
-
-  await client.connect();
-
-  const currentPriceRowQueryResult = await client.query(QUERY_CURRENT_PRICE_ROW);
-  const currentPriceRow = requireOneRow(currentPriceRowQueryResult, "Current active price row");
+async function publishPriceVersion(client: Client): Promise<void> {
+  const currentPriceRowQueryResult = await client.query<PriceRow>(QUERY_CURRENT_PRICE_ROW);
+  const currentPriceRow: PriceRow = requireOneRow(currentPriceRowQueryResult, "Current active price row");
 
   const currentAmounts: PriceAmounts = {
     baseSubscriptionMinor: currentPriceRow.base_subscription_minor,
@@ -219,7 +219,7 @@ async function main(): Promise<void> {
 
     leadAndLockMinor: await readMinorAmount(
       "Lead-and-lock Minor",
-      currentAmounts.leadMinor
+      currentAmounts.leadAndLockMinor
     ),
   };
 
@@ -242,22 +242,22 @@ async function main(): Promise<void> {
     newAmounts
   );
 
-  const effectiveAt = new Date();
+  const effectiveFrom = new Date();
 
   const publishNextPriceRow = async () => {
-    const lockedRowQueryResult = await client.query<PriceRow>(QUERY_LOCK_PRICE_ROW_FOR_UPDATE);
+    const lockedRowQueryResult = await client.query(QUERY_LOCK_PRICE_ROW_FOR_UPDATE);
     requireOneRow(lockedRowQueryResult, "Lock active price row");
 
     await client.query(
       QUERY_UPDATE_PRICE_ROW_ACTIVE_FALSE,
-      [effectiveAt, currentPriceRow.id, currentPriceRow.version]
+      [effectiveFrom, currentPriceRow.id, currentPriceRow.version]
     );
 
     await client.query(
       QUERY_INSERT_NEXT_PRICE_ROW,
       [
         newVersion, 
-        effectiveAt,
+        effectiveFrom,
 
         newAmounts.baseSubscriptionMinor,
         newAmounts.postcodeSubscriptionMinor,
@@ -278,11 +278,65 @@ async function main(): Promise<void> {
 
   await withTransaction(client, publishNextPriceRow);
 
-  console.log([stripePriceIds]);
+  validateAndPrintPriceVersion(newVersion, client);
+
   console.log(
     `Price version ${newVersion} published successfully,`
   );
 }
+
+
+async function validateAndPrintPriceVersion(version: number, client: Client) {
+  console.log("Fetching price version row...");
+  const activePriceRowQueryResult = await client.query<PriceRow>(
+          QUERY_GET_PRICE_VERSION,
+          [version]
+      );
+      const activePriceRow: PriceRow = requireOneRow(activePriceRowQueryResult, "Get active price row");
+      
+      console.log("Printing active price row:");
+      console.table(
+          [
+              {
+                  version: activePriceRow.version,
+                  effective_from: activePriceRow.effective_from,
+                  
+                  base_subscription: activePriceRow.base_subscription_minor,
+                  postcode_subscription: activePriceRow.postcode_subscription_minor,
+                  lead: activePriceRow.lead_minor,
+                  lock: activePriceRow.lock_minor,
+                  lead_and_lock: activePriceRow.lead_and_lock_minor,
+  
+                  base_stripe_price_id: activePriceRow.base_subscription_stripe_price_id,
+                  postcode_stripe_price_id: activePriceRow.postcode_subscription_stripe_price_id,
+                  lead_stripe_price_id: activePriceRow.lead_stripe_price_id,
+                  lock_stripe_price_id: activePriceRow.lock_stripe_price_id,
+                  lead_and_lock_stripe_price_id: activePriceRow.lead_and_lock_stripe_price_id
+              }
+          ]
+      );
+}
+
+
+async function main() {
+  const connectionString = process.env.DATABASE_URL_UNPOOLED;
+
+  if ( ! connectionString ) {
+    throw new Error("Database unpooled is missing.");
+  }
+
+  const client = new Client({
+    connectionString,
+  });
+
+  try {
+    await client.connect();
+    await publishPriceVersion(client);
+  } finally {
+    await client.end();
+  }
+}
+
 
 main()
   .catch((error: unknown) => {
