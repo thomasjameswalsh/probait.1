@@ -8,8 +8,8 @@ ALTER TABLE prices
 ALTER TABLE prices
     ADD COLUMN lead_and_lock_stripe_price_id text;
 
-CREATE CONSTRAINT prices_lead_and_lock_stripe_price_id_valid_chk
-    ON prices
+ALTER TABLE prices
+    ADD CONSTRAINT prices_lead_and_lock_stripe_price_id_valid_chk
     CHECK (
         lead_and_lock_stripe_price_id IS NULL
         OR (
