@@ -1,1 +1,2 @@
 *.sql text eol=lf
+migrations.log text eol=lf

@@ -1,29 +1,28 @@
-[2026-09-15T11:59:33.174Z] STARTED migration run
-[2026-09-15T11:59:33.372Z] 0000_create_schema_migrations.sql — RUNNING : 
-[2026-09-15T11:59:33.400Z] 0000_create_schema_migrations.sql — RUN SUCCESSFULLY : 
-[2026-09-15T11:59:33.420Z] 0001_create_extensions.sql — SKIPPED (already run) : 
-[2026-09-15T11:59:33.421Z] 0002_create_update_trigger.sql — SKIPPED (already run) : 
-[2026-09-15T11:59:33.422Z] 0003_create_postcode_districts.sql — SKIPPED (already run) : 
-[2026-09-15T11:59:33.422Z] 0004_create_postcode_adjacency.sql — SKIPPED (already run) : 
-[2026-09-15T11:59:33.423Z] 0005_create_app_rules.sql — SKIPPED (already run) : 
-[2026-09-15T11:59:33.423Z] 0006_create_prices.sql — SKIPPED (already run) : 
-[2026-09-15T11:59:33.424Z] 0007_create_business_accounts.sql — SKIPPED (already run) : 
-[2026-09-15T11:59:33.425Z] 0008_create_business_billing_runs.sql — SKIPPED (already run) : 
-[2026-09-15T11:59:33.425Z] 0009_create_business_billing_cycles.sql — SKIPPED (already run) : 
-[2026-09-15T11:59:33.426Z] 0010_add_billing_run_ref_cycle_fk.sql — SKIPPED (already run) : 
-[2026-09-15T11:59:33.427Z] 0011_create_stripe_idempotency.sql — SKIPPED (already run) : 
-[2026-09-15T11:59:33.427Z] 0012_create_leads.sql — SKIPPED (already run) : 
-[2026-09-15T11:59:33.428Z] 0013_create_lead_details.sql — SKIPPED (already run) : 
-[2026-09-15T11:59:33.428Z] 0014_create_lead_purchase_attempts.sql — SKIPPED (already run) : 
-[2026-09-15T11:59:33.429Z] 0015_create_lead_purchases.sql — SKIPPED (already run) : 
-[2026-09-15T11:59:33.430Z] 0016_create_lead_access_grants.sql — SKIPPED (already run) : 
-[2026-09-15T11:59:33.430Z] 0017_create_lead_locks.sql — SKIPPED (already run) : 
-[2026-09-15T11:59:33.431Z] 0018_create_postcode_subscriptions.sql — SKIPPED (already run) : 
-[2026-09-15T11:59:33.431Z] 0019_alter_lead_purchase_attempts_status_chk.sql — SKIPPED (already run) : 
-[2026-09-15T11:59:33.432Z] 0020_drop_billing_tables.sql — SKIPPED (already run) : 
-[2026-09-15T11:59:33.433Z] 0021_alter_business_accounts_stripe_id.sql — SKIPPED (already run) : 
-[2026-09-15T11:59:33.433Z] 0022_alter_prices_add_price_id.sql — SKIPPED (already run) : 
-[2026-09-15T11:59:33.434Z] 0023_create_business_subscriptions.sql — SKIPPED (already run) : 
-[2026-09-15T11:59:33.435Z] RUNNING 0024_add_prices_column_leadlock.sql : 
-[2026-09-15T11:59:33.519Z] APPLIED 0024_add_prices_column_leadlock.sql : 
-[2026-09-15T11:59:33.538Z] FINISHED successfully : 
+[2026-09-15T12:39:55.876Z] STARTED migration run
+[2026-09-15T12:39:56.673Z] 0000_create_schema_migrations.sql — RUNNING : 
+[2026-09-15T12:39:56.706Z] 0000_create_schema_migrations.sql — RUN SUCCESSFULLY : 
+[2026-09-15T12:39:56.772Z] 0001_create_extensions.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.773Z] 0002_create_update_trigger.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.773Z] 0003_create_postcode_districts.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.774Z] 0004_create_postcode_adjacency.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.775Z] 0005_create_app_rules.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.775Z] 0006_create_prices.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.776Z] 0007_create_business_accounts.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.776Z] 0008_create_business_billing_runs.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.777Z] 0009_create_business_billing_cycles.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.778Z] 0010_add_billing_run_ref_cycle_fk.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.778Z] 0011_create_stripe_idempotency.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.779Z] 0012_create_leads.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.779Z] 0013_create_lead_details.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.780Z] 0014_create_lead_purchase_attempts.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.780Z] 0015_create_lead_purchases.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.781Z] 0016_create_lead_access_grants.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.781Z] 0017_create_lead_locks.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.782Z] 0018_create_postcode_subscriptions.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.782Z] 0019_alter_lead_purchase_attempts_status_chk.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.783Z] 0020_drop_billing_tables.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.784Z] 0021_alter_business_accounts_stripe_id.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.784Z] 0022_alter_prices_add_price_id.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.785Z] 0023_create_business_subscriptions.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.785Z] 0024_add_prices_column_leadlock.sql — SKIPPED (already run) : 
+[2026-09-15T12:39:56.891Z] FINISHED successfully : 
