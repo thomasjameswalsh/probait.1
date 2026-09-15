@@ -4,8 +4,8 @@ ALTER TABLE prices
     ADD COLUMN lock_stripe_price_id text,
     ADD COLUMN lead_stripe_price_id text;
 
-CREATE CONSTRAINT prices_base_subscription_stripe_price_id_valid_chk
-    ON prices
+ALTER TABLE prices
+    ADD CONSTRAINT prices_base_subscription_stripe_price_id_valid_chk
     CHECK (
         base_subscription_stripe_price_id IS NULL
         OR (
@@ -14,8 +14,8 @@ CREATE CONSTRAINT prices_base_subscription_stripe_price_id_valid_chk
         )
     );
 
-CREATE CONSTRAINT prices_postcode_subscription_stripe_price_id_valid_chk
-    ON prices
+ALTER TABLE prices
+    ADD CONSTRAINT prices_postcode_subscription_stripe_price_id_valid_chk
     CHECK (
         postcode_subscription_stripe_price_id IS NULL
         OR (
@@ -24,8 +24,8 @@ CREATE CONSTRAINT prices_postcode_subscription_stripe_price_id_valid_chk
         )
     );
 
-CREATE CONSTRAINT prices_lock_stripe_price_id_valid_chk
-    ON prices
+ALTER TABLE prices
+    ADD CONSTRAINT prices_lock_stripe_price_id_valid_chk
     CHECK (
         lock_stripe_price_id IS NULL
         OR (
@@ -34,8 +34,8 @@ CREATE CONSTRAINT prices_lock_stripe_price_id_valid_chk
         )
     );
 
-CREATE CONSTRAINT prices_lead_stripe_price_id_valid_chk
-    ON prices
+ALTER TABLE prices
+    ADD CONSTRAINT prices_lead_stripe_price_id_valid_chk
     CHECK (
         lead_stripe_price_id IS NULL
         OR (

@@ -1,6 +1,3 @@
-// Overwrite the file when the runner starts, then append entries as it progresses
-// a missing 'FINISH' entry indicates an interrupted run
-
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { inspect } from "node:util";

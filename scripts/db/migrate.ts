@@ -92,7 +92,7 @@ async function loadMigrationFile(filename: string): Promise<MigrationFile> {
     const filepath = path.join(MIGRATIONS_DIR, filename);
     const sql = await fs.readFile(filepath, "utf8");
 
-    const checksum = createHash("sha256").update(sql).digest("hex");
+    const checksum = createHash("sha256").update(sql.replace(/\r\n/g, "\n")).digest("hex");
 
     return {
         filename,

@@ -1,4 +1,4 @@
-ALTER TABLE business_account
+ALTER TABLE business_accounts
 	ADD COLUMN stripe_customer_id text;
 
 ALTER TABLE business_accounts

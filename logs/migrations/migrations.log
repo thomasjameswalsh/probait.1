@@ -1,0 +1,52 @@
+[2026-09-15T11:54:49.836Z] STARTED migration run
+[2026-09-15T11:54:50.067Z] 0000_create_schema_migrations.sql — RUNNING : 
+[2026-09-15T11:54:50.096Z] 0000_create_schema_migrations.sql — RUN SUCCESSFULLY : 
+[2026-09-15T11:54:50.117Z] 0001_create_extensions.sql — SKIPPED (already run) : 
+[2026-09-15T11:54:50.118Z] 0002_create_update_trigger.sql — SKIPPED (already run) : 
+[2026-09-15T11:54:50.119Z] 0003_create_postcode_districts.sql — SKIPPED (already run) : 
+[2026-09-15T11:54:50.119Z] 0004_create_postcode_adjacency.sql — SKIPPED (already run) : 
+[2026-09-15T11:54:50.120Z] 0005_create_app_rules.sql — SKIPPED (already run) : 
+[2026-09-15T11:54:50.121Z] 0006_create_prices.sql — SKIPPED (already run) : 
+[2026-09-15T11:54:50.121Z] 0007_create_business_accounts.sql — SKIPPED (already run) : 
+[2026-09-15T11:54:50.122Z] 0008_create_business_billing_runs.sql — SKIPPED (already run) : 
+[2026-09-15T11:54:50.122Z] 0009_create_business_billing_cycles.sql — SKIPPED (already run) : 
+[2026-09-15T11:54:50.123Z] 0010_add_billing_run_ref_cycle_fk.sql — SKIPPED (already run) : 
+[2026-09-15T11:54:50.123Z] 0011_create_stripe_idempotency.sql — SKIPPED (already run) : 
+[2026-09-15T11:54:50.124Z] 0012_create_leads.sql — SKIPPED (already run) : 
+[2026-09-15T11:54:50.125Z] 0013_create_lead_details.sql — SKIPPED (already run) : 
+[2026-09-15T11:54:50.125Z] 0014_create_lead_purchase_attempts.sql — SKIPPED (already run) : 
+[2026-09-15T11:54:50.126Z] 0015_create_lead_purchases.sql — SKIPPED (already run) : 
+[2026-09-15T11:54:50.127Z] 0016_create_lead_access_grants.sql — SKIPPED (already run) : 
+[2026-09-15T11:54:50.127Z] 0017_create_lead_locks.sql — SKIPPED (already run) : 
+[2026-09-15T11:54:50.128Z] 0018_create_postcode_subscriptions.sql — SKIPPED (already run) : 
+[2026-09-15T11:54:50.128Z] 0019_alter_lead_purchase_attempts_status_chk.sql — SKIPPED (already run) : 
+[2026-09-15T11:54:50.129Z] 0020_drop_billing_tables.sql — SKIPPED (already run) : 
+[2026-09-15T11:54:50.130Z] RUNNING 0021_alter_business_accounts_stripe_id.sql : 
+[2026-09-15T11:54:50.216Z] APPLIED 0021_alter_business_accounts_stripe_id.sql : 
+[2026-09-15T11:54:50.220Z] RUNNING 0022_alter_prices_add_price_id.sql : 
+[2026-09-15T11:54:50.298Z] ROLLBACK migration 0022_alter_prices_add_price_id.sql : 
+[2026-09-15T11:54:50.340Z] 0022_alter_prices_add_price_id.sql — ERROR : 
+error: syntax error at or near "prices_base_subscription_stripe_price_id_valid_chk"
+    at C:\Git\probait.1\A\probait-repo-A\node_modules\pg\lib\client.js:646:17
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async applyMigration (C:\Git\probait.1\A\probait-repo-A\scripts\db\migrate.ts:124:9)
+    at async main (C:\Git\probait.1\A\probait-repo-A\scripts\db\migrate.ts:212:13) {
+  length: 140,
+  severity: 'ERROR',
+  code: '42601',
+  detail: undefined,
+  hint: undefined,
+  position: '243',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'scan.l',
+  line: '1244',
+  routine: 'scanner_yyerror'
+}
+[2026-09-15T11:54:50.358Z] FINISHED with errors : 
