@@ -91,7 +91,7 @@ async function getPriceAmounts(): Promise<PriceAmounts> {
 
     while ( true ) {
         const useDefaults = 
-            (await consoleInput.question("Proceed with defaults? y/n")).trim();
+            (await consoleInput.question("Proceed with defaults? y/n: ")).trim();
         if ( useDefaults == "y" ) {
             break;
         } 
