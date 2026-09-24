@@ -94,8 +94,11 @@ async function getPriceAmounts(): Promise<PriceAmounts> {
             (await consoleInput.question("Proceed with defaults? y/n")).trim();
         if ( useDefaults == "y" ) {
             break;
-        } else if ( useDefaults == "n" ) {
+        } 
+        
+        if ( useDefaults == "n" ) {
             priceAmounts = await readPriceAmounts(consoleInput, priceAmounts);
+            break;
         }
     }
 
