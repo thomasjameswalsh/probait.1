@@ -7,11 +7,12 @@ import { stdin, stdout } from "node:process";
 // Run scripts using env var with flag
 // npx tsx --env-file=.env.local scripts/db/prices/init-stripe-products.ts
 
+import type { PriceRow, PriceAmounts, StripePriceIds } from "./types/price-types";
+
 import { 
-    type PriceAmounts,
-    type StripePriceIds,
     createStripePriceVersion
  } from "./create-stripe-price-version";
+import { showPrices, readPriceAmounts, printPriceRow } from "./price-console";
 import { requireOneRow, withTransaction } from "@/scripts/query-helpers";
 
 const QUERY_PRICES_IS_EMPTY = 
@@ -57,15 +58,7 @@ const QUERY_PRICES_INSERT_PRICE_VERSION_1 =
 
 const QUERY_GET_INSERTED_PRICE_VERSION = 
     `
-    SELECT 
-        version,
-        effective_from,
-
-        base_subscription_minor,
-        postcode_subscription_minor,
-        lead_minor,
-        lock_minor,
-        lead_and_lock_minor
+    SELECT *
     FROM prices
     WHERE active = true AND version = 1;
     `;
@@ -86,67 +79,15 @@ async function checkPricesTableEmpty(client: Client): Promise<boolean> {
 }
 
 
-async function readMinorAmount(
-  name: string,
-  currentValue: number
-): Promise<number> {
-  while ( true ) {
-    const answer = (
-      await consoleInput.question(
-        `${name} [current value ${currentValue}]: `
-      )).trim();
-
-      if ( answer.toLowerCase() == "x" ) {
-        console.log(`(x) Using current value ${currentValue} for ${name}`);
-        return currentValue;
-      } 
-
-      if ( answer == "" ) {
-        console.log("Please enter a value; or, enter ' x ' to use current value.");
-        continue;
-      }
-      const value = Number(answer);
-      if ( Number.isSafeInteger(value) && value >= 0 ) {
-        return value;
-      }
-
-      console.log("Enter a non-negative whole number.");
-  }
-}
-
-
 async function getPriceAmounts(): Promise<PriceAmounts> {
     let priceAmounts: PriceAmounts = {
         baseSubscriptionMinor: 3200,
         postcodeSubscriptionMinor: 2400,
-        leadMinor: 1200,
-        lockMinor: 1600,
+        leadMinor: 1600,
+        lockMinor: 1200,
         leadAndLockMinor: 2400
     };
-
-    console.log("Default price values table:")
-    console.table([
-        {
-            price: "Base Subscription",
-            minor_value: 3200     
-        },
-        {
-            price: "Postcode Subscription",
-            minor_value: 2400
-        },
-        {
-            price: "Lead Purchase",
-            minor_value: 1600 
-        },
-        {
-            price: "Lock Purchase",
-            minor_value: 1200
-        },
-        {
-            price: "Lead and lock",
-            minor_value: 2400
-        }
-    ]);
+    showPrices("Default Prices", -1, priceAmounts);
 
     while ( true ) {
         const useDefaults = 
@@ -154,32 +95,7 @@ async function getPriceAmounts(): Promise<PriceAmounts> {
         if ( useDefaults == "y" ) {
             break;
         } else if ( useDefaults == "n" ) {
-            priceAmounts = {
-                baseSubscriptionMinor: await readMinorAmount(
-                  "Base Subscription Minor",
-                  priceAmounts.baseSubscriptionMinor
-                ),
-            
-                postcodeSubscriptionMinor: await readMinorAmount(
-                  "Postcode Subscription Minor",
-                  priceAmounts.postcodeSubscriptionMinor
-                ),
-            
-                leadMinor: await readMinorAmount(
-                  "Lead Minor",
-                  priceAmounts.leadMinor
-                ),
-            
-                lockMinor: await readMinorAmount(
-                  "Lock Minor",
-                  priceAmounts.lockMinor
-                ),
-            
-                leadAndLockMinor: await readMinorAmount(
-                  "Lead-and-lock Minor",
-                  priceAmounts.leadAndLockMinor
-                ),
-              };
+            priceAmounts = await readPriceAmounts(consoleInput, priceAmounts);
         }
     }
 
@@ -221,46 +137,21 @@ async function seedFirstPriceVersion(client: Client): Promise<void> {
     await withTransaction(client, insertPriceRow);
 
     console.log("Price version created.");
-    
 }
 
 
 async function getInsertedPriceVersion(client: Client) {
     console.log("VALIDATE: Query DB for price version 1...");
 
-    type PriceVersionRow = {
-        version: number,
-        effective_from: Date,
-        base_subscription_minor: number,
-        postcode_subscription_minor: number,
-        lead_minor: number,
-        lock_minor: number,
-        lead_and_lock_minor: number
-    };
-
     if ( await checkPricesTableEmpty(client) ) {
         throw new Error("Prices table is STILL empty, inserting price row failed.");
     }
 
-    const insertedRowResult = await client.query<PriceVersionRow>(
+    const insertedRowResult = await client.query<PriceRow>(
         QUERY_GET_INSERTED_PRICE_VERSION
     );
     const insertedRow = requireOneRow(insertedRowResult, "Price row with version = 1 and active = true not found.");
-
-    console.log("Price version 1 found. Printing row:")
-    console.table([
-        {
-            version: insertedRow.version,
-            effectiveFrom: insertedRow.effective_from,
-            base_subscription: insertedRow.base_subscription_minor,
-            postcode_subscription: insertedRow.postcode_subscription_minor,
-            lead: insertedRow.lead_minor,
-            lock: insertedRow.lock_minor,
-            lead_and_lock: insertedRow.lead_and_lock_minor
-        }
-    ]);
-
-    console.log("SUCCESS.");
+    printPriceRow(insertedRow, "Success. Printing inserted price row...");
 }
 
 

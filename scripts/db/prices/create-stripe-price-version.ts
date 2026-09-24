@@ -1,22 +1,7 @@
-import Stripe from "stripe";
-
 import { stripe } from "@scripts/stripe-client";
 
-export type PriceAmounts = {
-    baseSubscriptionMinor: number;
-    postcodeSubscriptionMinor: number;
-    leadMinor: number;
-    lockMinor: number;
-    leadAndLockMinor: number;
-};
+import { PriceAmounts, StripePriceIds } from "./types/price-types";
 
-export type StripePriceIds = {
-    baseSubscriptionPriceId: string;
-    postcodeSubscriptionPriceId: string;
-    leadPriceId: string;
-    lockPriceId: string;
-    leadAndLockPriceId: string;
-};
 
 function getProductId(variableName: string): string {
     const productId = process.env[variableName];

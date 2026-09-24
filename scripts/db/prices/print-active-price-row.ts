@@ -2,6 +2,9 @@ import { Client } from "pg";
 import { loadEnvConfig } from "@next/env";
 import { requireOneRow } from "@/scripts/query-helpers";
 
+import { PriceRow } from "./types/price-types";
+
+
 loadEnvConfig(process.cwd());
 
 
@@ -21,27 +24,7 @@ const QUERY_PRICES_IS_EMPTY =
     `;
 
 
-type PriceRow = {
-    id: string;
-    version: number;
-    effective_from: Date;
-    effective_to: Date | null;
-
-    base_subscription_minor: number;
-    postcode_subscription_minor: number;
-    lead_minor: number;
-    lock_minor: number;
-    lead_and_lock_minor: number;
-
-    base_subscription_stripe_price_id: string | null;
-    postcode_subscription_stripe_price_id: string | null;
-    lead_stripe_price_id: string | null;
-    lock_stripe_price_id: string | null;
-    lead_and_lock_stripe_price_id: string | null;
-};
-
-
-export async function printCurrentActivePriceVersion(client: Client) {
+export async function printFullActivePriceVersion(client: Client) {
     const pricesIsEmpty = await client.query<{is_empty: boolean}>(QUERY_PRICES_IS_EMPTY);
     if ( pricesIsEmpty.rows[0].is_empty ) {
         console.log("Prices table is empty.");
@@ -92,7 +75,7 @@ async function main() {
 
     try {
         await client.connect();
-        await printCurrentActivePriceVersion(client);
+        await printFullActivePriceVersion(client);
     } finally {
         await client.end();
     }
@@ -107,5 +90,5 @@ main()
     process.exitCode = 1;
   })
   .finally(() => {
-    console.log("Script finished. Exiting.");
+    console.log("Exiting.");
   });

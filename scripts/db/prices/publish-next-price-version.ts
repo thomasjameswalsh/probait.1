@@ -1,45 +1,19 @@
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
-
 import { loadEnvConfig } from "@next/env";
 import { Client } from "pg";
 
 import {
-  type PriceAmounts,
-  type StripePriceIds,
   createStripePriceVersion
 } from "@scripts/db/prices/create-stripe-price-version";
 
-import {
-  printCurrentActivePriceVersion
-} from "@scripts/db/prices/print-active-price-row";
-
+import { PriceRow, PriceAmounts, StripePriceIds } from "./types/price-types";
+import { showPrices, readPriceAmounts, printPriceRow } from "./price-console";
 import { requireOneRow, withTransaction } from "@/scripts/query-helpers";
-import { act } from "react";
 
 
 // Run scripts using env var with flag
 // npx tsx --env-file=.env.local scripts/db/prices/init-stripe-products.ts
-
-
-type PriceRow = {
-  id: string;
-  version: number;
-  effective_from: Date;
-  effective_to: Date | null;
-
-  base_subscription_minor: number;
-  postcode_subscription_minor: number;
-  lead_minor: number;
-  lock_minor: number;
-  lead_and_lock_minor: number;
-
-  base_subscription_stripe_price_id: string | null;
-  postcode_subscription_stripe_price_id: string | null;
-  lead_stripe_price_id: string | null;
-  lock_stripe_price_id: string | null;
-  lead_and_lock_stripe_price_id: string | null;
-};
 
 
 const QUERY_CURRENT_PRICE_ROW = 
@@ -117,67 +91,6 @@ const consoleInput = createInterface({
 });
 
 
-async function readMinorAmount(
-  name: string,
-  currentValue: number
-): Promise<number> {
-  while ( true ) {
-    const answer = (
-      await consoleInput.question(
-        `${name} [current value ${currentValue}]: `
-      )).trim();
-
-      if ( answer.toLowerCase() == "x" ) {
-        console.log(`(x) Using current value ${currentValue} for ${name}`);
-        return currentValue;
-      } 
-
-      if ( answer == "" ) {
-        console.log("Please enter a value; or, enter ' x ' to use current value.");
-        continue;
-      }
-      const value = Number(answer);
-      if ( Number.isSafeInteger(value) && value >= 0 ) {
-        return value;
-      }
-
-      console.log("Enter a non-negative whole number.");
-  }
-}
-
-
-function showPrices(
-  title: string,
-  version: number,
-  amounts: PriceAmounts
-): void {
-  console.log(`\nPrices table - version ${version}`);
-
-  console.table([
-    {
-      price: "Base Subscription (minor)",
-      minor: amounts.baseSubscriptionMinor,
-    },
-    {
-      price: "Postcode Subscription (minor)",
-      minor: amounts.postcodeSubscriptionMinor,
-    },
-    {
-      price: "Lead Price (minor)",
-      minor: amounts.leadMinor,
-    },
-    {
-      price: "Lock Price (minor)",
-      minor: amounts.lockMinor,
-    },
-    {
-      price: "Lead-and-lock Price (minor)",
-      minor: amounts.leadAndLockMinor,
-    }
-  ]);
-}
-
-
 async function publishPriceVersion(client: Client): Promise<void> {
   const currentPriceRowQueryResult = await client.query<PriceRow>(QUERY_CURRENT_PRICE_ROW);
   const currentPriceRow: PriceRow = requireOneRow(currentPriceRowQueryResult, "Current active price row");
@@ -196,32 +109,8 @@ async function publishPriceVersion(client: Client): Promise<void> {
     currentAmounts
   );
 
-  const newAmounts: PriceAmounts = {
-    baseSubscriptionMinor: await readMinorAmount(
-      "Base Subscription Minor",
-      currentAmounts.baseSubscriptionMinor
-    ),
-
-    postcodeSubscriptionMinor: await readMinorAmount(
-      "Postcode Subscription Minor",
-      currentAmounts.postcodeSubscriptionMinor
-    ),
-
-    leadMinor: await readMinorAmount(
-      "Lead Minor",
-      currentAmounts.leadMinor
-    ),
-
-    lockMinor: await readMinorAmount(
-      "Lock Minor",
-      currentAmounts.lockMinor
-    ),
-
-    leadAndLockMinor: await readMinorAmount(
-      "Lead-and-lock Minor",
-      currentAmounts.leadAndLockMinor
-    ),
-  };
+  console.log("Enter the new price values as follows...");
+  const newAmounts: PriceAmounts = await readPriceAmounts(consoleInput, currentAmounts);
 
   const newVersion = currentPriceRow.version + 1;
   showPrices("New prices", newVersion, newAmounts);
@@ -237,7 +126,7 @@ async function publishPriceVersion(client: Client): Promise<void> {
     return;
   }
 
-  const stripePriceIds = await createStripePriceVersion(
+  const stripePriceIds: StripePriceIds = await createStripePriceVersion(
     newVersion,
     newAmounts
   );
@@ -269,16 +158,14 @@ async function publishPriceVersion(client: Client): Promise<void> {
         stripePriceIds.postcodeSubscriptionPriceId,
         stripePriceIds.leadPriceId,
         stripePriceIds.lockPriceId,
-        stripePriceIds.leadAndLockPriceId,
-
-        'GBP'
+        stripePriceIds.leadAndLockPriceId
       ]
     );
   }
 
   await withTransaction(client, publishNextPriceRow);
 
-  validateAndPrintPriceVersion(newVersion, client);
+  await validateAndPrintPriceVersion(newVersion, client);
 
   console.log(
     `Price version ${newVersion} published successfully,`
@@ -293,28 +180,7 @@ async function validateAndPrintPriceVersion(version: number, client: Client) {
           [version]
       );
       const activePriceRow: PriceRow = requireOneRow(activePriceRowQueryResult, "Get active price row");
-      
-      console.log("Printing active price row:");
-      console.table(
-          [
-              {
-                  version: activePriceRow.version,
-                  effective_from: activePriceRow.effective_from,
-                  
-                  base_subscription: activePriceRow.base_subscription_minor,
-                  postcode_subscription: activePriceRow.postcode_subscription_minor,
-                  lead: activePriceRow.lead_minor,
-                  lock: activePriceRow.lock_minor,
-                  lead_and_lock: activePriceRow.lead_and_lock_minor,
-  
-                  base_stripe_price_id: activePriceRow.base_subscription_stripe_price_id,
-                  postcode_stripe_price_id: activePriceRow.postcode_subscription_stripe_price_id,
-                  lead_stripe_price_id: activePriceRow.lead_stripe_price_id,
-                  lock_stripe_price_id: activePriceRow.lock_stripe_price_id,
-                  lead_and_lock_stripe_price_id: activePriceRow.lead_and_lock_stripe_price_id
-              }
-          ]
-      );
+      printPriceRow(activePriceRow, "Printing active price row...");
 }
 
 
