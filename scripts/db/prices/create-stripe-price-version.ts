@@ -1,4 +1,4 @@
-import { stripe } from "@scripts/stripe-client";
+import { stripe } from "@/scripts/stripe-client";
 
 import { PriceAmounts, StripePriceIds } from "./types/price-types";
 

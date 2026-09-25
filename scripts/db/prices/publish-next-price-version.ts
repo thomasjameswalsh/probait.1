@@ -5,7 +5,7 @@ import { Client } from "pg";
 
 import {
   createStripePriceVersion
-} from "@scripts/db/prices/create-stripe-price-version";
+} from "@/scripts/db/prices/create-stripe-price-version";
 
 import { PriceRow, PriceAmounts, StripePriceIds } from "./types/price-types";
 import { showPrices, readPriceAmounts, printPriceRow } from "./price-console";
