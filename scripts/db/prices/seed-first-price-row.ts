@@ -13,7 +13,7 @@ import {
     createStripePriceVersion
  } from "./create-stripe-price-version";
 import { showPrices, readPriceAmounts, printPriceRow } from "./price-console";
-import { requireOneRow, withTransaction } from "@/scripts/query-helpers";
+import { requireOneRow, withTransaction } from "@/lib/db/query-helpers";
 
 const QUERY_PRICES_IS_EMPTY = 
     `

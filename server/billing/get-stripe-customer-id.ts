@@ -3,7 +3,7 @@ import "server-only";
 import { pool } from "@/lib/db/db";
 import { stripe } from "@/server/stripe/client";
 
-import { requireOneRow } from "@/scripts/query-helpers";
+import { requireOneRow } from "@/lib/db/query-helpers";
 
 
 type BusinessAccountRow = {

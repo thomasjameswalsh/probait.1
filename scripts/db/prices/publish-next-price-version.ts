@@ -9,7 +9,7 @@ import {
 
 import { PriceRow, PriceAmounts, StripePriceIds } from "./types/price-types";
 import { showPrices, readPriceAmounts, printPriceRow } from "./price-console";
-import { requireOneRow, withTransaction } from "@/scripts/query-helpers";
+import { requireOneRow, withTransaction } from "@/lib/db/query-helpers";
 
 
 // Run scripts using env var with flag

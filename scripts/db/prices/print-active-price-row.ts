@@ -1,6 +1,6 @@
 import { Client } from "pg";
 import { loadEnvConfig } from "@next/env";
-import { requireOneRow } from "@/scripts/query-helpers";
+import { requireOneRow } from "@/lib/db/query-helpers";
 
 import { PriceRow } from "./types/price-types";
 
