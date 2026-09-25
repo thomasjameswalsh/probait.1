@@ -14,18 +14,18 @@ type BusinessAccountRow = {
 
 const QUERY_SET_LOCK_TIMEOUT = 
     `
-    SET LOCAL lock_timeout = $1;
+    SET LOCAL lock_timeout = '5s'
     `;
 
 const QUERY_SELECT_BUSINESS_ACCOUNT =
     `
-    SELECT id, strip_customer_id
+    SELECT id, stripe_customer_id
     FROM business_accounts
     WHERE id = $1
     FOR UPDATE;
     `;
 
-const QUERY_INSERT_STRIPE_CUSTOMER_ID =
+const QUERY_UPDATE_STRIPE_CUSTOMER_ID =
     `
     UPDATE business_accounts
     SET stripe_customer_id = $1
@@ -34,10 +34,8 @@ const QUERY_INSERT_STRIPE_CUSTOMER_ID =
     RETURNING id;
     `;
 
-const lockTimeout = '1s';
 
-
-export async function getStripeCustomerId(
+export async function getOrCreateStripeCustomerId(
     businessAccountId: string
 ): Promise<string> {
     const client = await pool.connect();
@@ -45,17 +43,13 @@ export async function getStripeCustomerId(
 
     try {
         await client.query("BEGIN");
-        await client.query(QUERY_SET_LOCK_TIMEOUT, [lockTimeout]);
+        await client.query(QUERY_SET_LOCK_TIMEOUT);
 
         const businessQueryResult = await client.query<BusinessAccountRow>(
             QUERY_SELECT_BUSINESS_ACCOUNT,
             [businessAccountId]
         );
-        const businessAccountRow: BusinessAccountRow = requireOneRow(businessQueryResult, "Get business stripe customer");
-
-        if ( ! businessAccountRow ) {
-            throw new Error("Business account not found.");
-        }
+        const businessAccountRow: BusinessAccountRow = requireOneRow(businessQueryResult, "Get business account stripe customer id");
 
         if ( businessAccountRow.stripe_customer_id ) {
             await client.query("COMMIT");
@@ -76,15 +70,15 @@ export async function getStripeCustomerId(
         );
 
         const updateResult = await client.query(
-            QUERY_INSERT_STRIPE_CUSTOMER_ID,
+            QUERY_UPDATE_STRIPE_CUSTOMER_ID,
             [stripeCustomer.id, businessAccountRow.id]
         );
-        const updateRequireOneRow = requireOneRow(updateResult, "Could not save new Stripe Customer ID");
+        requireOneRow(updateResult, "Could not save new Stripe Customer ID");
         
         await client.query("COMMIT");
 
         return stripeCustomer.id;
-        
+
     } catch ( error ) {
         try {
             await client.query("ROLLBACK");
