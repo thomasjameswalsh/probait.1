@@ -1,0 +1,12 @@
+ALTER TABLE business_subscriptions
+    DROP CONSTRAINT business_subscriptions_grace_period_chk,
+    DROP COLUMN past_due_since,
+    DROP COLUMN grace_ends_at,
+    DROP CONSTRAINT business_subscriptions_business_account_id_key;
+
+CREATE UNIQUE INDEX business_subscriptions_one_unended_per_business_idx
+    ON business_subscriptions (business_account_id)
+    WHERE ended_at IS NULL;
+
+CREATE INDEX business_subscriptions_business_account_idx
+    ON business_subscriptions (business_account_id);
