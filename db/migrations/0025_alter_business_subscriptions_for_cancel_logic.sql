@@ -4,7 +4,7 @@ ALTER TABLE business_subscriptions
     DROP COLUMN grace_ends_at,
     DROP CONSTRAINT business_subscriptions_business_account_id_key;
 
-CREATE UNIQUE INDEX business_subscriptions_one_unended_per_business_idx
+CREATE UNIQUE INDEX business_subscriptions_one_active_per_business_idx
     ON business_subscriptions (business_account_id)
     WHERE ended_at IS NULL;
 
