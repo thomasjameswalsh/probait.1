@@ -1,6 +1,6 @@
 import "server-only";
 
-import { pool } from "@/lib/db/db";
+import { pool } from "@/lib/db/pool";
 import { stripe } from "@/server/stripe/client";
 
 import { requireOneRow } from "@/lib/db/query-helpers";

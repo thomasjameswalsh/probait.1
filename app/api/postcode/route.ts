@@ -1,4 +1,4 @@
-import { pool } from '@/lib/db/db';
+import { pool } from '@/lib/db/pool';
 import { NextRequest, NextResponse } from 'next/server';
 
 import type { PostcodeDistrictRow } from "@/lib/types/postcode-types";
