@@ -228,8 +228,8 @@ export async function saveStripeSubscriptionStateToDatabase(
                 "Find unended business subscription",
             );
 
-            // In the impossible case that a subscription active in the db
-            // is ended in Stripe and now a new subscription has been created
+            // The unlikely case where an existing active subscription is already recorded.
+            // Refresh the recorded subscription before deciding whether to accept incoming.
             if (
                 existing &&
                 existing.stripe_subscription_id !== stripeSubscription.id
