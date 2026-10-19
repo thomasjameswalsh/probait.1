@@ -8,23 +8,35 @@ import { optionalOneRow, requireOneRow } from "@/lib/db/query-helpers";
 import { stripe } from "@/server/stripe/client";
 
 
-type BusinessAccountId = {
-    id: string;
-};
+const BASE_PRODUCT_ID =
+    process.env.STRIPE_BASE_SUBSCRIPTION_PRODUCT_ID;
 
-type UnendedSubscriptionId = {
-    stripe_subscription_id: string;
-};
+const POSTCODE_PRODUCT_ID =
+    process.env.STRIPE_POSTCODE_SUBSCRIPTION_PRODUCT_ID;
 
-
-const BASE_PRODUCT_ID = process.env.STRIPE_BASE_SUBSCRIPTION_PRODUCT_ID;
-const POSTCODE_PRODUCT_ID = process.env.STRIPE_POSTCODE_SUBSCRIPTION_PRODUCT_ID;
 if (
     ! BASE_PRODUCT_ID ||
     ! POSTCODE_PRODUCT_ID ||
-    BASE_PRODUCT_ID === POSTCODE_PRODUCT_ID ) {
-        throw new Error("Missing or invalid Stripe product IDs from env.");
-    }
+    BASE_PRODUCT_ID === POSTCODE_PRODUCT_ID
+) {
+    throw new Error("Missing or invalid Stripe product IDs from env.");
+}
+
+
+const QUERY_LOCK_BUSINESS_ACCOUNT = `
+    SELECT id
+    FROM business_accounts
+    WHERE stripe_customer_id = $1
+    FOR UPDATE;
+`;
+
+
+const QUERY_SELECT_UNENDED_SUBSCRIPTION = `
+    SELECT stripe_subscription_id
+    FROM business_subscriptions
+    WHERE business_account_id = $1
+        AND ended_at IS NULL;
+`;
 
 
 const QUERY_UPSERT_BUSINESS_SUBSCRIPTION = `
@@ -59,28 +71,23 @@ const QUERY_UPSERT_BUSINESS_SUBSCRIPTION = `
         cancel_at = EXCLUDED.cancel_at,
         canceled_at = EXCLUDED.canceled_at,
         ended_at = EXCLUDED.ended_at
-    WHERE
-        business_subscriptions.business_account_id =
-            EXCLUDED.business_account_id
+    WHERE business_subscriptions.business_account_id =
+        EXCLUDED.business_account_id
     RETURNING id;
 `;
 
 
-const QUERY_LOCK_BUSINESS_ACCOUNT =
+const QUERY_UPDATE_ENDED_SUBSCRIPTION =
     `
-    SELECT id
-    FROM business_accounts
-    WHERE stripe_customer_id = $1
-    FOR UPDATE;
-    `;
-
-
-const QUERY_SELECT_UNENDED_SUBSCRIPTION =
-    `
-    SELECT stripe_subscription_id
-    FROM business_subscriptions
-    WHERE business_account_id = $1
-        AND ended_at IS NULL;
+        UPDATE business_subscriptions
+        SET
+            stripe_status = $3,
+            ended_at = $4,
+            cancel_at = $5,
+            canceled_at = $6
+        WHERE business_account_id = $1
+            AND stripe_subscription_id = $2
+        RETURNING id;
     `;
 
 
@@ -102,7 +109,7 @@ async function retrieveSubscriptionFromStripe(
     subscriptionId: string,
     stripeCustomerId: string,
 ): Promise<Stripe.Subscription> {
-    const stripeSubscription= await stripe.subscriptions.retrieve(
+    const subscription = await stripe.subscriptions.retrieve(
         subscriptionId,
         {},
         {
@@ -111,76 +118,53 @@ async function retrieveSubscriptionFromStripe(
         },
     );
 
-    const subscriptionCustomerId =
-        typeof stripeSubscription.customer === "string"
-            ? stripeSubscription.customer
-            : stripeSubscription.customer.id;
-    
-    if ( subscriptionCustomerId !== stripeCustomerId ) {
-        throw new Error("Stripe subscription customer mismatch");
+    const customerId =
+        typeof subscription.customer === "string"
+            ? subscription.customer
+            : subscription.customer.id;
+
+    if ( customerId !== stripeCustomerId ) {
+        throw new Error("Stripe subscription customer mismatch.");
     }
 
-    return stripeSubscription;
+    return subscription;
 }
 
 
-async function saveSubscription(
+async function upsertSubscriptionRow(
     client: PoolClient,
     businessAccountId: string,
-    subscription: Stripe.Subscription
+    subscription: Stripe.Subscription,
 ): Promise<void> {
-    const items = subscription.items.data;
+    if ( subscription.ended_at !== null ) {
+        const result = await client.query<{ id: string }>(
+            QUERY_UPDATE_ENDED_SUBSCRIPTION,
+            [
+                businessAccountId,
+                subscription.id,
+                subscription.status,
+                toDate(subscription.ended_at),
+                toDate(subscription.cancel_at),
+                toDate(subscription.canceled_at),
+            ],
+        );
+        optionalOneRow(result, "Update ended subscription");
 
-    const baseItems = items.filter(
+        return;
+    }
+
+    const baseItem = subscription.items.data.find(
         (item) => getProductId(item) === BASE_PRODUCT_ID,
     );
-    const baseItem = baseItems[0];
+
+    const postcodeItem = subscription.items.data.find(
+        (item) => getProductId(item) === POSTCODE_PRODUCT_ID,
+    );
+
     if ( ! baseItem ) {
         throw new Error("Base subscription item missing.");
     }
 
-    const postcodeItems = items.filter(
-        (item) => getProductId(item) === POSTCODE_PRODUCT_ID,
-    );
-
-    const totalNumberOfItems = items.length;
-    const numberOfBaseProductItems = baseItems.length;
-    const numberOfPostcodeProductItems = postcodeItems.length;
-    if ( numberOfBaseProductItems !== 1 ) {
-        throw new Error("Base subscription item missing.");
-    }
-
-    /*
-    if ( numberOfPostcodeProductItems > 1 ) {
-        // Future: Consider handling of additional postcode items.
-    }
-    */
-
-    // Is this necessary? REally, if the user has done something strange in stripe to make additional items, our app can go on and take the first item
-    // Later clean-up script could run, but currently that is not there. Throw error doesn't seem right because it might lose an important update on the sub,
-    // and this system needs to run-itself and keep working no matter what as much as possible - nobody is going to do admin work on individual subs
-    if ( ( numberOfPostcodeProductItems + numberOfBaseProductItems ) !== totalNumberOfItems ) {
-        throw new Error("Unexpected subscription items present.");
-    }
-
-    const baseItem = baseItems[0];
-    const postcodeItem = postcodeItems[0];
-
-    if ( ! baseItem || baseItem.quantity !== 1 ) {
-        throw new Error("Expected one base item with quantity of 1.");
-    }
-
-    const postcodeQuantity = postcodeItem
-        ? postcodeItem.quantity
-        : 0;
-    
-    if ( typeof postcodeQuantity !== "number" ||
-        ! Number.isSafeInteger(postcodeQuantity) ||
-        postcodeQuantity < 0 )
-    {
-        throw new Error("Invalid postcode subscription quantity.");
-    }
-    
     const result = await client.query<{ id: string }>(
         QUERY_UPSERT_BUSINESS_SUBSCRIPTION,
         [
@@ -189,7 +173,7 @@ async function saveSubscription(
             baseItem.id,
             postcodeItem?.id ?? null,
             subscription.status,
-            postcodeQuantity,
+            postcodeItem ? postcodeItem.quantity : 0,
             toDate(baseItem.current_period_start),
             toDate(baseItem.current_period_end),
             subscription.cancel_at_period_end,
@@ -198,11 +182,12 @@ async function saveSubscription(
             toDate(subscription.ended_at),
         ],
     );
-    requireOneRow(result, "Save (upsert) business subscription");
+
+    requireOneRow(result, "Save business subscription");
 }
 
 
-export async function pullStripeSubscriptionStateToDatabase(
+export async function saveStripeSubscriptionStateToDatabase(
     stripeCustomerId: string,
     stripeSubscriptionId: string,
 ): Promise<void> {
@@ -211,55 +196,78 @@ export async function pullStripeSubscriptionStateToDatabase(
 
     try {
         await client.query("BEGIN");
-        await client.query("SET LOCAL lock_timeout = '5s';");
+        await client.query("SET LOCAL lock_timeout = '5s'");
 
-        const accountResult = await client.query<BusinessAccountId>(
+        const accountResult = await client.query<{ id: string }>(
             QUERY_LOCK_BUSINESS_ACCOUNT,
-            [stripeCustomerId]
+            [stripeCustomerId],
         );
 
         const account = requireOneRow(
             accountResult,
-            "Find business account for Stripe subscription"
+            "Find business account for Stripe subscription",
         );
 
         const stripeSubscription = await retrieveSubscriptionFromStripe(
             stripeSubscriptionId,
-            stripeCustomerId
+            stripeCustomerId,
         );
 
-        if ( stripeSubscription.ended_at === null ) {
-            const unendedSubscriptionInDbResult =
-                await client.query<UnendedSubscriptionId>(
-                    QUERY_SELECT_UNENDED_SUBSCRIPTION,
-                    [account.id]
-                );
-            
-            // What if there is no row returned?
-            const unendedSubscriptionInDb = optionalOneRow(
-                unendedSubscriptionInDbResult,
-                `Select unended subscription for ${account.id}`);
-            
-            // This is a complicated state where a previous subscription has ended in Stripe
-            // before the ending webhook has arrived and been logged in db
-            if ( unendedSubscriptionInDb &&
-                 unendedSubscriptionInDb.stripe_subscription_id !== stripeSubscription.id ) {
-                const endedStripeSubscription = await retrieveSubscriptionFromStripe(
-                    unendedSubscriptionInDb.stripe_subscription_id,
-                    stripeCustomerId
-                );
-                
-                if ( endedStripeSubscription.ended_at === null ) {
-                    // Make something happen here where the old subscription gets deleted
-                    // Doesn't Stripe have fundamental protection against this?
-                    // This seems like coding around things that Stripe should prevent/be fully reliable for
-                    throw new Error(`Business has two unended subscriptions in Stripe.`);
-                }
+        let shouldSave = true;
 
+        if ( stripeSubscription.ended_at === null ) {
+            const existingResult = await client.query<{
+                stripe_subscription_id: string;
+            }>(
+                QUERY_SELECT_UNENDED_SUBSCRIPTION,
+                [account.id],
+            );
+
+            const existing = optionalOneRow(
+                existingResult,
+                "Find unended business subscription",
+            );
+
+            // In the impossible case that a subscription active in the db
+            // is ended in Stripe and now a new subscription has been created
+            if (
+                existing &&
+                existing.stripe_subscription_id !== stripeSubscription.id
+            ) {
+                const existingSubscription =
+                    await retrieveSubscriptionFromStripe(
+                        existing.stripe_subscription_id,
+                        stripeCustomerId,
+                    );
+
+                await upsertSubscriptionRow(
+                    client,
+                    account.id,
+                    existingSubscription,
+                );
+
+                shouldSave = existingSubscription.ended_at !== null;
             }
-            
         }
 
-        if ( existingResult)
+        if ( shouldSave ) {
+            await upsertSubscriptionRow(
+                client,
+                account.id,
+                stripeSubscription,
+            );
+        }
+
+        await client.query("COMMIT");
+    } catch ( error ) {
+        try {
+            await client.query("ROLLBACK");
+        } catch {
+            discardConnection = true;
+        }
+
+        throw error;
+    } finally {
+        client.release(discardConnection);
     }
 }
